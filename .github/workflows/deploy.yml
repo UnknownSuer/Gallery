@@ -28,8 +28,11 @@ jobs:
       - name: Проверить, что панель управления закрыта
         run: |
           if grep -qE "admin:[[:space:]]*'always'" assets/js/config.js; then
-            echo "::error file=assets/js/config.js::admin: 'always' — панель будет доступна всем на опубликованном сайте. Поставьте 'local' или 'off'."
+            echo "::error file=assets/js/config.js::admin: 'always' — панель будет доступна всем и на виду. Поставьте 'local', 'remote' или 'off'."
             exit 1
+          fi
+          if grep -qE "admin:[[:space:]]*'remote'" assets/js/config.js; then
+            echo "::notice::admin: 'remote' — панель доступна на сайте по #/admin. Публикация возможна только с токеном; убедитесь, что пароль панели изменён."
           fi
           echo "config.js в порядке"
 

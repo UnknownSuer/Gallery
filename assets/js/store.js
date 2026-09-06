@@ -374,6 +374,67 @@ window.FHh = window.FHh || {};
     });
   }
 
+  /* ---------------- публикация прямо из браузера ----------------
+     Пишем data/site.json в репозиторий через GitHub Contents API.
+     Токен приходит параметром, нигде не сохраняется и не логируется. */
+  function b64utf8(str) {
+    var bytes = new TextEncoder().encode(str);
+    var bin = '', chunk = 0x8000, i;
+    for (i = 0; i < bytes.length; i += chunk) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(bin);
+  }
+
+  function ghError(r) {
+    return r.json().catch(function () { return {}; }).then(function (e) {
+      var msg = e.message || ('HTTP ' + r.status);
+      if (r.status === 401) msg = 'Токен не принят: истёк или скопирован не полностью';
+      if (r.status === 403) msg = 'Нет прав на запись. Проверьте, что у токена стоит Contents: Read and write и выбран нужный репозиторий';
+      if (r.status === 404) msg = 'Репозиторий или ветка не найдены — проверьте раздел github в config.js';
+      if (r.status === 409) msg = 'Файл на GitHub успел измениться. Обновите страницу и опубликуйте заново';
+      throw new Error(msg);
+    });
+  }
+
+  function publishToGitHub(token, message) {
+    var cfg = (window.FHH_CONFIG || {}).github || {};
+    if (!cfg.owner || !cfg.repo) {
+      return Promise.reject(new Error('В config.js не заполнен раздел github'));
+    }
+    var branch = cfg.branch || 'main';
+    var path = cfg.path || 'data/site.json';
+    var api = 'https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' + path;
+    var H = {
+      'Authorization': 'Bearer ' + token,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Content-Type': 'application/json'
+    };
+
+    return exportJSON().then(function (json) {
+      var body = { message: message || 'Витрина: обновление содержимого', content: b64utf8(json), branch: branch };
+      // текущий sha нужен, чтобы перезаписать существующий файл
+      return fetch(api + '?ref=' + encodeURIComponent(branch), { headers: H })
+        .then(function (r) {
+          if (r.status === 404) return null;
+          if (!r.ok) return ghError(r);
+          return r.json();
+        })
+        .then(function (cur) {
+          if (cur && cur.sha) body.sha = cur.sha;
+          return fetch(api, { method: 'PUT', headers: H, body: JSON.stringify(body) });
+        })
+        .then(function (r) {
+          if (!r.ok) return ghError(r);
+          return r.json();
+        })
+        .then(function (res) {
+          return { commit: res.commit && res.commit.sha ? res.commit.sha.slice(0, 7) : '', bytes: json.length };
+        });
+    });
+  }
+
   /* ---------------- публичный API ---------------- */
   NS.store = {
     DEFAULTS: DEFAULTS,
@@ -381,6 +442,7 @@ window.FHh = window.FHh || {};
     load: load,
     save: save,
     hydrate: hydrate,
+    publishToGitHub: publishToGitHub,
     reset: reset,
     uid: uid,
     clone: clone,

@@ -38,9 +38,18 @@ window.FHh = window.FHh || {};
     return location.protocol === 'file:' ||
            h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '';
   }
-  var ADMIN_ALLOWED = CFG.admin === 'always' ? true
+  var ADMIN_ALLOWED = (CFG.admin === 'always' || CFG.admin === 'remote') ? true
                     : CFG.admin === 'off' ? false
                     : isLocalHost();
+  // в режиме remote панель есть на опубликованном сайте, но не афишируется:
+  // точку в подвале убираем, вход только по #/admin или Ctrl+Shift+A
+  var SHOW_DOT = ADMIN_ALLOWED && (isLocalHost() || CFG.admin === 'always');
+  var CAN_PUBLISH_HERE = CFG.admin === 'remote' && !!((CFG.github || {}).owner);
+  var TOKEN_KEY = 'fhh.gh.token';
+  function ghToken() { try { return sessionStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
+  function setGhToken(v) {
+    try { v ? sessionStorage.setItem(TOKEN_KEY, v) : sessionStorage.removeItem(TOKEN_KEY); } catch (e) {}
+  }
 
   function sha256(str) {
     if (!(window.crypto && window.crypto.subtle && window.TextEncoder)) return Promise.resolve(null);
@@ -467,6 +476,23 @@ window.FHh = window.FHh || {};
         '<button class="btn btn--ghost" data-act="imp">Загрузить бэкап</button>' +
         '<input type="file" id="impFile" accept="application/json,.json" hidden>' +
       '</div>' +
+      (CAN_PUBLISH_HERE ? (
+        '<h4>Опубликовать прямо отсюда</h4>' +
+        '<p class="hint">Отправляет витрину в репозиторий <b>' +
+          esc(((CFG.github || {}).owner || '') + '/' + ((CFG.github || {}).repo || '')) +
+        '</b>, дальше GitHub Action обновит сайт сам — примерно через минуту.<br>' +
+        'Нужен <b>fine-grained</b> токен GitHub: только этот репозиторий, ' +
+        'разрешение <b>Contents: Read and write</b>, срок 30–90 дней. ' +
+        'Токен хранится до закрытия вкладки и никуда, кроме GitHub, не отправляется.</p>' +
+        '<div class="cols">' +
+          field('Токен GitHub', '<input type="password" id="ghToken" placeholder="' +
+            (ghToken() ? 'токен запомнен до закрытия вкладки' : 'github_pat_…') + '">') +
+          '<label class="field"><span>&nbsp;</span>' +
+          '<button class="btn btn--solid" data-act="ghpub" style="width:100%">Опубликовать</button></label>' +
+        '</div>' +
+        '<div class="toolbar"><button class="btn btn--ghost" data-act="ghforget">Забыть токен</button></div>'
+      ) : '') +
+
       '<h4>Публикация сайта</h4>' +
       '<p class="hint">Витрина, которую видят посетители, лежит в файле ' +
       '<b>data/site.json</b> в репозитории. Кнопка ниже собирает этот файл из текущего ' +
@@ -480,6 +506,11 @@ window.FHh = window.FHh || {};
       '<p class="hint">Режим панели задаётся в <b>assets/js/config.js</b>. Сейчас: <b>' +
         esc(CFG.admin || 'local') + '</b>' +
         (ADMIN_ALLOWED ? '' : ' — на этом адресе панель была бы закрыта') + '.<br>' +
+      (CFG.admin === 'remote'
+        ? 'Режим <b>remote</b>: панель открывается и на опубликованном сайте, но только ' +
+          'по адресу #/admin или Ctrl+Shift+A — точки в подвале там нет. Правки видны ' +
+          'только в вашем браузере, пока вы не нажмёте «Опубликовать» с токеном.<br>'
+        : '') +
       'При значении <b>local</b> панель не открывается на опубликованном домене ' +
       'ничем: ни точкой в подвале, ни Ctrl+Shift+A, ни адресом #/admin. Это и есть ' +
       'настоящая защита. Пароль ниже — только от случайного захода на вашем же ' +
@@ -510,6 +541,26 @@ window.FHh = window.FHh || {};
       var b = e.target.closest('[data-act]'); if (!b) return;
       if (b.dataset.act === 'exp') doExport();
       if (b.dataset.act === 'publish') doExport('site.json');
+      if (b.dataset.act === 'ghforget') { setGhToken(''); render(); NS.ui.toast('Токен забыт'); }
+      if (b.dataset.act === 'ghpub') {
+        var tok = ($('#ghToken').value || '').trim() || ghToken();
+        if (!tok) { alert('Вставьте токен GitHub'); return; }
+        if (dirty) persist(true);
+        b.disabled = true;
+        status('отправляем на GitHub…');
+        S.publishToGitHub(tok).then(function (res) {
+          setGhToken(tok);
+          $('#ghToken').value = '';
+          b.disabled = false;
+          status('опубликовано, коммит ' + res.commit + ' · ' + Math.round(res.bytes / 1024) + ' КБ');
+          NS.ui.toast('Отправлено. Сайт обновится через минуту');
+          render();
+        }).catch(function (err) {
+          b.disabled = false;
+          status('не опубликовано');
+          alert('Не получилось опубликовать.\n\n' + err.message);
+        });
+      }
       if (b.dataset.act === 'setpass') {
         var v = $('#newPass').value;
         if (!v) { alert('Введите новый пароль'); return; }
@@ -577,6 +628,17 @@ window.FHh = window.FHh || {};
 
   function open() {
     if (!ADMIN_ALLOWED) return;              // на опубликованном домене панели нет
+    // в удалённом режиме не пускаем, пока пароль остаётся заводским:
+    // он написан в README и в руководстве, значит известен всем
+    if (CFG.admin === 'remote' && !isLocalHost()) {
+      var st0 = S.state.settings;
+      if (!st0.adminPassHash && (!st0.adminPass || st0.adminPass === 'fern')) {
+        alert('Пароль панели ещё не менялся.\n\n' +
+              'Откройте сайт у себя (start.cmd), смените пароль в «Данные → Доступ», ' +
+              'опубликуйте — и панель заработает здесь.');
+        return;
+      }
+    }
     if (!unlocked) { showLock(); return; }
     $('#admin').classList.add('is-open');
     $('#admin').setAttribute('aria-hidden', 'false');
@@ -599,7 +661,7 @@ window.FHh = window.FHh || {};
   function hideLock() { $('#lock').classList.remove('is-open'); $('#lockErr').textContent = ''; $('#lockPass').value = ''; }
 
   /* ---------------- привязки ---------------- */
-  if (!ADMIN_ALLOWED) {
+  if (!SHOW_DOT) {
     var dot = $('#adminOpen');
     if (dot && dot.parentNode) dot.parentNode.removeChild(dot);
   }
