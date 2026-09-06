@@ -45,6 +45,9 @@ window.FHh = window.FHh || {};
   // точку в подвале убираем, вход только по #/admin или Ctrl+Shift+A
   var SHOW_DOT = ADMIN_ALLOWED && (isLocalHost() || CFG.admin === 'always');
   var CAN_PUBLISH_HERE = CFG.admin === 'remote' && !!((CFG.github || {}).owner);
+  // на опубликованном сайте паролю верить негде: проверять его пришлось бы
+  // по файлу, который лежит в открытом репозитории. Поэтому там вход по токену
+  var TOKEN_LOGIN = CAN_PUBLISH_HERE && !isLocalHost();
   var TOKEN_KEY = 'fhh.gh.token';
   function ghToken() { try { return sessionStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
   function setGhToken(v) {
@@ -486,7 +489,7 @@ window.FHh = window.FHh || {};
         'Токен хранится до закрытия вкладки и никуда, кроме GitHub, не отправляется.</p>' +
         '<div class="cols">' +
           field('Токен GitHub', '<input type="password" id="ghToken" placeholder="' +
-            (ghToken() ? 'токен запомнен до закрытия вкладки' : 'github_pat_…') + '">') +
+            (ghToken() ? 'токен уже введён при входе' : 'github_pat_…') + '">') +
           '<label class="field"><span>&nbsp;</span>' +
           '<button class="btn btn--solid" data-act="ghpub" style="width:100%">Опубликовать</button></label>' +
         '</div>' +
@@ -508,8 +511,11 @@ window.FHh = window.FHh || {};
         (ADMIN_ALLOWED ? '' : ' — на этом адресе панель была бы закрыта') + '.<br>' +
       (CFG.admin === 'remote'
         ? 'Режим <b>remote</b>: панель открывается и на опубликованном сайте, но только ' +
-          'по адресу #/admin или Ctrl+Shift+A — точки в подвале там нет. Правки видны ' +
-          'только в вашем браузере, пока вы не нажмёте «Опубликовать» с токеном.<br>'
+          'по адресу #/admin или Ctrl+Shift+A — точки в подвале там нет. ' +
+          '<b>Там вход не по паролю, а по токену GitHub</b>: пароль пришлось бы ' +
+          'проверять по файлу из открытого репозитория, а токен — настоящий секрет, ' +
+          'который нигде не публикуется и отзывается одной кнопкой. Пароль ниже ' +
+          'действует только на этом компьютере.<br>'
         : '') +
       'При значении <b>local</b> панель не открывается на опубликованном домене ' +
       'ничем: ни точкой в подвале, ни Ctrl+Shift+A, ни адресом #/admin. Это и есть ' +
@@ -628,17 +634,6 @@ window.FHh = window.FHh || {};
 
   function open() {
     if (!ADMIN_ALLOWED) return;              // на опубликованном домене панели нет
-    // в удалённом режиме не пускаем, пока пароль остаётся заводским:
-    // он написан в README и в руководстве, значит известен всем
-    if (CFG.admin === 'remote' && !isLocalHost()) {
-      var st0 = S.state.settings;
-      if (!st0.adminPassHash && (!st0.adminPass || st0.adminPass === 'fern')) {
-        alert('Пароль панели ещё не менялся.\n\n' +
-              'Откройте сайт у себя (start.cmd), смените пароль в «Данные → Доступ», ' +
-              'опубликуйте — и панель заработает здесь.');
-        return;
-      }
-    }
     if (!unlocked) { showLock(); return; }
     $('#admin').classList.add('is-open');
     $('#admin').setAttribute('aria-hidden', 'false');
@@ -655,8 +650,18 @@ window.FHh = window.FHh || {};
   }
 
   function showLock() {
+    var box = $('#lockForm');
+    var title = $('p', box), inp = $('#lockPass');
+    if (TOKEN_LOGIN) {
+      title.textContent = 'вход по токену GitHub';
+      inp.placeholder = ghToken() ? 'токен запомнен — просто нажмите «Войти»' : 'github_pat_…';
+      inp.autocomplete = 'off';
+    } else {
+      title.textContent = 'вход в панель управления';
+      inp.placeholder = 'пароль';
+    }
     $('#lock').classList.add('is-open');
-    setTimeout(function () { $('#lockPass').focus(); }, 60);
+    setTimeout(function () { inp.focus(); }, 60);
   }
   function hideLock() { $('#lock').classList.remove('is-open'); $('#lockErr').textContent = ''; $('#lockPass').value = ''; }
 
@@ -680,9 +685,22 @@ window.FHh = window.FHh || {};
   $('#lockForm').addEventListener('submit', function (e) {
     e.preventDefault();
     var v = $('#lockPass').value;
+    var err = $('#lockErr');
+
+    if (TOKEN_LOGIN) {
+      var tok = v || ghToken();
+      if (!tok) { err.textContent = 'Вставьте токен'; return; }
+      err.textContent = 'проверяем токен…';
+      S.checkGitHubToken(tok).then(function (ok) {
+        if (ok) { setGhToken(tok); unlocked = true; hideLock(); open(); }
+        else err.textContent = 'Токен не подошёл: истёк, обрезан или выдан не на этот репозиторий';
+      });
+      return;
+    }
+
     checkPass(v).then(function (ok) {
       if (ok) { unlocked = true; hideLock(); open(); }
-      else $('#lockErr').textContent = 'Неверный пароль';
+      else err.textContent = 'Неверный пароль';
     });
   });
   $('#lock').addEventListener('click', function (e) { if (e.target === $('#lock')) hideLock(); });

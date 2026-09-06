@@ -343,10 +343,11 @@ window.FHh = window.FHh || {};
       var media = {};
       list.forEach(function (x) { if (x) media[x.ref] = x.data; });
       var now = new Date().toISOString();
-      // открытый пароль наружу не уходит никогда; хеш — уходит, иначе панель
-      // на опубликованном сайте не узнает, что пароль сменён с заводского
+      // ни пароль, ни его хеш в публичный файл не попадают: на опубликованном
+      // сайте вход в панель идёт по токену GitHub, проверять там нечего
       var pub = clone(state);
       delete pub.settings.adminPass;
+      delete pub.settings.adminPassHash;
       return JSON.stringify({ v: 1, exported: now, publishedAt: now, site: pub, media: media }, null, 2);
     });
   }
@@ -397,6 +398,20 @@ window.FHh = window.FHh || {};
     });
   }
 
+  /* Проверка токена: обращаемся к самому репозиторию. Ответ 200 означает,
+     что токен настоящий и выдан на этот репозиторий. */
+  function checkGitHubToken(token) {
+    var cfg = (window.FHH_CONFIG || {}).github || {};
+    if (!cfg.owner || !cfg.repo) return Promise.resolve(false);
+    return fetch('https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo, {
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    }).then(function (r) { return r.ok; }).catch(function () { return false; });
+  }
+
   function publishToGitHub(token, message) {
     var cfg = (window.FHH_CONFIG || {}).github || {};
     if (!cfg.owner || !cfg.repo) {
@@ -443,6 +458,7 @@ window.FHh = window.FHh || {};
     save: save,
     hydrate: hydrate,
     publishToGitHub: publishToGitHub,
+    checkGitHubToken: checkGitHubToken,
     reset: reset,
     uid: uid,
     clone: clone,
