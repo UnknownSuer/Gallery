@@ -300,12 +300,13 @@ window.FHh = window.FHh || {};
             .then(function (b) { return idbPut(ref.slice(4), b); })
             .catch(function () { return null; });
         })).then(function () {
-          // пароль панели живёт только локально и публикацией не перетирается
+          // свой хеш пароля важнее опубликованного, но только если он вообще
+          // задан: у нового посетителя его нет, и тогда работает опубликованный
           var keepPass = state && state.settings ? state.settings.adminPass : undefined;
-          var keepHash = state && state.settings ? state.settings.adminPassHash : undefined;
+          var keepHash = state && state.settings ? state.settings.adminPassHash : '';
           site.settings = deepFill(site.settings, DEFAULTS.settings);
           if (keepPass !== undefined) site.settings.adminPass = keepPass;
-          if (keepHash !== undefined) site.settings.adminPassHash = keepHash;
+          if (keepHash) site.settings.adminPassHash = keepHash;
           site.savedAt = pack.publishedAt || site.publishedAt || new Date().toISOString();
           state = site;
           urlCache = {};
@@ -342,11 +343,10 @@ window.FHh = window.FHh || {};
       var media = {};
       list.forEach(function (x) { if (x) media[x.ref] = x.data; });
       var now = new Date().toISOString();
-      // пароль панели в публикуемый файл не попадает: он остаётся только
-      // в браузере владельца
+      // открытый пароль наружу не уходит никогда; хеш — уходит, иначе панель
+      // на опубликованном сайте не узнает, что пароль сменён с заводского
       var pub = clone(state);
       delete pub.settings.adminPass;
-      delete pub.settings.adminPassHash;
       return JSON.stringify({ v: 1, exported: now, publishedAt: now, site: pub, media: media }, null, 2);
     });
   }
