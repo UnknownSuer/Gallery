@@ -1,0 +1,53 @@
+name: Публикация сайта на GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Предохранитель: панель управления не должна уезжать на боевой домен.
+      # config.js -> admin: 'local' (по умолчанию) или 'off'.
+      - name: Проверить, что панель управления закрыта
+        run: |
+          if grep -qE "admin:[[:space:]]*'always'" assets/js/config.js; then
+            echo "::error file=assets/js/config.js::admin: 'always' — панель будет доступна всем на опубликованном сайте. Поставьте 'local' или 'off'."
+            exit 1
+          fi
+          echo "config.js в порядке"
+
+      # Витрина посетителей берётся из data/site.json. Файла может не быть —
+      # тогда сайт покажет демо-каталог, это не ошибка, только предупреждение.
+      - name: Проверить содержимое витрины
+        run: |
+          if [ -f data/site.json ]; then
+            python3 -c "import json,sys; d=json.load(open('data/site.json',encoding='utf-8')); s=d.get('site',d); print('работ в витрине:', len(s['items']))"
+          else
+            echo "::warning::data/site.json не найден — сайт опубликуется с демо-каталогом. Соберите файл в панели: Данные → Файл для публикации."
+          fi
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
