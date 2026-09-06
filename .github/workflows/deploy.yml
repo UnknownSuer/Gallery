@@ -43,7 +43,11 @@ jobs:
             echo "::warning::data/site.json не найден — сайт опубликуется с демо-каталогом. Соберите файл в панели: Данные → Файл для публикации."
           fi
 
+      # enablement: true — первый запуск сам включает Pages в настройках репозитория,
+      # руками в Settings ничего нажимать не нужно
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
