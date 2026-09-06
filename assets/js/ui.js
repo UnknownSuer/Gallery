@@ -190,7 +190,8 @@ window.FHh = window.FHh || {};
     var it = S.state.items.filter(function (x) { return x.id === id; })[0];
     if (!it) return;
     currentItem = it;
-    wiper.run(Math.random() * 999, 1150, function () { fillProduct(it); });
+    // никакого перехода: панель просто выезжает сбоку поверх витрины
+    fillProduct(it);
   }
 
   function fillProduct(it) {

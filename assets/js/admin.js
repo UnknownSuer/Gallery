@@ -193,7 +193,7 @@ window.FHh = window.FHh || {};
     }).join('');
 
     var specs = (it.specs || []).map(function (s, i) {
-      return '<div class="cols" data-spec="' + i + '" style="grid-template-columns:1fr 1fr 40px;align-items:end">' +
+      return '<div class="cols cols--spec" data-spec="' + i + '">' +
         field('Параметр', '<input type="text" data-sk="' + i + '" value="' + esc(s[0]) + '">') +
         field('Значение', '<input type="text" data-sv="' + i + '" value="' + esc(s[1]) + '">') +
         '<label class="field"><span>&nbsp;</span><button class="btn btn--ghost" data-act="specdel" data-i="' + i + '" style="padding:11px 0;width:100%">×</button></label>' +
@@ -670,6 +670,23 @@ window.FHh = window.FHh || {};
     var dot = $('#adminOpen');
     if (dot && dot.parentNode) dot.parentNode.removeChild(dot);
   }
+
+  /* ---------------- вход с телефона ----------------
+     Точки в подвале на опубликованном сайте нет, а набирать #/admin на
+     телефоне неудобно. Скрытый жест: три быстрых нажатия на строку
+     копирайта внизу страницы. Случайно так не попадёшь. */
+  (function () {
+    var mark = $('.foot [data-bind="footerNote"]') || $('.foot');
+    if (!mark || !ADMIN_ALLOWED) return;
+    var taps = 0, last = 0;
+    mark.style.webkitTapHighlightColor = 'transparent';
+    mark.addEventListener('click', function () {
+      var now = Date.now();
+      taps = (now - last < 700) ? taps + 1 : 1;
+      last = now;
+      if (taps >= 3) { taps = 0; open(); }
+    });
+  })();
   $('#adminOpen') && $('#adminOpen').addEventListener('click', open);
   $('#adminClose').addEventListener('click', close);
   $('.admin__scrim').addEventListener('click', close);
