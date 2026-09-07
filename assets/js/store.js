@@ -1,6 +1,9 @@
 /* ============================================================
    store.js — модель данных, хранилище, дефолтный контент.
    Метаданные -> localStorage, изображения -> IndexedDB (blob).
+
+   Схема 2: цвета живут не в CSS, а в настройках (палитра + роли),
+   товары собраны в группы, у страницы «о мастере» своя лента фото.
    ============================================================ */
 window.FHh = window.FHh || {};
 
@@ -10,29 +13,69 @@ window.FHh = window.FHh || {};
   var LS_KEY = 'fhh.site.v1';
   var DB_NAME = 'fhh-media';
   var DB_STORE = 'img';
+  var SCHEMA = 2;
+
+  /* ---------------- палитра ----------------
+     Пять базовых цветов паспорта хорса. Всё остальное на сайте —
+     производные от них (см. style.css) или роли (ниже). */
+  var TOKENS = [
+    { k: 'paper',   name: 'Бумага (тёплый бежевый)' },
+    { k: 'ink',     name: 'Чернила (чёрный)' },
+    { k: 'rust',    name: 'Рыжий' },
+    { k: 'olive',   name: 'Зелёно-бежевый' },
+    { k: 'emerald', name: 'Изумруд (печать)' }
+  ];
+
+  /* Роли — куда именно попадает цвет. Значение роли = ключ токена,
+     поэтому смена палитры мгновенно перекрашивает весь сайт. */
+  var ROLES = [
+    { k: 'roleAccent', name: 'Главный акцент', hint: 'вторая строка заголовка, точки у названий разделов, ссылки' },
+    { k: 'roleBand',   name: 'Цветной блок',   hint: 'фон блока-манифеста на главной' },
+    { k: 'roleBadge',  name: 'Метка «под заказ»', hint: 'плашка на обложке работы' },
+    { k: 'roleSeal',   name: 'Печать',         hint: 'штамп-гиппогриф, подчёркивания, служебные детали' },
+    { k: 'roleLogo',   name: 'Кольцо логотипа', hint: 'обод вокруг маскота в шапке и на вкладке браузера' }
+  ];
+
+  var BUILTIN_PALETTES = [
+    { id: 'passport', name: 'Паспорт хорса', paper: '#eedbb3', ink: '#231f20', rust: '#d9772f', olive: '#9b8f6d', emerald: '#1f6b52' },
+    { id: 'ember',    name: 'Уголь и рыжина', paper: '#f2e7d2', ink: '#1a1614', rust: '#c85c22', olive: '#8b8560', emerald: '#2a6b57' },
+    { id: 'fern',     name: 'Папоротник',     paper: '#ececea', ink: '#15171a', rust: '#a86a38', olive: '#3f5c46', emerald: '#2f6360' },
+    { id: 'night',    name: 'Полночный лес',  paper: '#16150f', ink: '#efe3c8', rust: '#e0913f', olive: '#a29b74', emerald: '#5fae8e' },
+    { id: 'glass',    name: 'Витраж',         paper: '#f0ece1', ink: '#171a21', rust: '#bf6231', olive: '#7d8a63', emerald: '#1c6f68' }
+  ];
+
+  var MASTER_PHOTOS = [
+    'assets/img/master/m01.webp', 'assets/img/master/m02.webp', 'assets/img/master/m03.webp',
+    'assets/img/master/m04.webp', 'assets/img/master/m05.webp', 'assets/img/master/m06.webp',
+    'assets/img/master/m07.webp', 'assets/img/master/m08.webp', 'assets/img/master/m09.webp',
+    'assets/img/master/m10.webp', 'assets/img/master/m11.webp'
+  ];
 
   /* ---------------- дефолтный контент ---------------- */
   var DEFAULTS = {
+    schema: SCHEMA,
+
     settings: {
       siteTitle: 'FHh',
+      siteTagline: 'мастерская ручной работы',
       telegram: 'kip_rina',
       heroTag1: 'ручная работа',
       heroTag2: 'штучный тираж',
       heroTag3: 'отправка по России',
       heroLine1: 'fantasy',
-      heroLine2: 'hobbyhorse.',
-      heroSub: 'Хоббихорсы, амуниция, витражи и крафтовые изделия — сделанные так, будто выросли в лесу.',
-      heroFootL: 'мастерская · Ирина Киприянова',
+      heroLine2: 'handmade.',
+      heroSub: 'Хоббихорсы и амуниция, витражи, игрушки и крафтовые вещи — сделанные так, будто выросли в лесу.',
+      heroFootL: 'мастерская · Рина Киприянова',
       bandLead: 'каждая работа существует в одном экземпляре',
       bandText:
         '<p>Я не повторяю модели: даже если основа похожа, характер, цвет и фурнитура ' +
         'собираются заново — под конкретную лошадь или под конкретного человека.</p>' +
         '<p>Готовое из витрины уезжает сразу. Всё остальное делается под заказ: ' +
         'обсуждаем породу, масть, гриву, амуницию и сроки в Telegram.</p>',
-      footerNote: '© FHh · Fantasy Hobbyhorse · Ирина Киприянова',
+      footerNote: '© FHh · Рина Киприянова',
       currency: '₽',
       aboutText:
-        '<p>Меня зовут Ирина Киприянова. Я делаю вещи руками: хоббихорсов и амуницию для них, витражи, ' +
+        '<p>Меня зовут Рина Киприянова. Я делаю вещи руками: хоббихорсов и амуницию для них, витражи, ' +
         'мягкие игрушки и крафтовые предметы для дома.</p>' +
         '<p>Каждая работа существует в одном экземпляре. Я не повторяю модели: даже если основа похожа, ' +
         'характер, цвет и фурнитура собираются заново под конкретную лошадь или конкретного человека.</p>' +
@@ -46,24 +89,58 @@ window.FHh = window.FHh || {};
         'Самовывоз обсуждается отдельно.</p>' +
         '<h3>Оплата</h3>' +
         '<p>Перевод по номеру телефона. Работы под заказ — предоплата 50%.</p>',
-      // оформление
-      paper: '#ececea',
-      ink: '#15171a',
-      moss: '#3f5c46',
-      brass: '#a86a38',
+
+      /* оформление: палитра */
+      paper: '#eedbb3',
+      ink: '#231f20',
+      rust: '#d9772f',
+      olive: '#9b8f6d',
+      emerald: '#1f6b52',
+      paletteId: 'passport',
+
+      /* оформление: роли */
+      roleAccent: 'rust',
+      roleBand: 'olive',
+      roleBadge: 'rust',
+      roleSeal: 'emerald',
+      roleLogo: 'olive',
+
+      /* оформление: типографика */
+      fontPreset: 'rune',     // rune | clean
+      fontScale: 1,
+
+      /* оформление: движение */
       anim: 1,
-      density: 1,          // плотность ботаники
-      preloaderMs: 2200,   // минимальная длительность прелоадера, мс
-      adminPass: 'fern',   // пароль панели (используется, пока не задан хеш)
-      adminPassHash: ''    // sha-256 пароля; задаётся из панели, вытесняет adminPass
+      density: 1,
+      preloaderMs: 2200,
+      lineart: 1,             // фоновый лайнарт головы как декор
+
+      /* «о мастере» */
+      aboutPhotos: MASTER_PHOTOS.slice(),
+      aboutDrift: 1,
+
+      adminPass: 'fern',
+      adminPassHash: ''
     },
 
+    palettes: [],   // пользовательские палитры (встроенные лежат в BUILTIN_PALETTES)
+
+    /* «ссылка на медиа -> путь файла в репозитории»: чтобы при следующей
+       публикации не заливать уже выложенные фотографии заново */
+    mediaPub: {},
+
+    groups: [
+      { id: 'hobbyhorsing', name: 'HobbyHorsing', note: 'Хоббихорсы и амуниция к ним — одна семья: голова, палка, оголовье и вальтрап собираются в комплект.' },
+      { id: 'glass',        name: 'Витражи',      note: 'Тиффани, спаянное стекло и подвески, которые ловят утренний свет.' },
+      { id: 'handmade',     name: 'Хендмейд',     note: 'Всё остальное, что сделано руками: игрушки, крафт, интерьерные мелочи. Пока без строгой систематизации.' }
+    ],
+
     categories: [
-      { id: 'hh',      name: 'Хоббихорсы' },
-      { id: 'ammo',    name: 'Амуниция' },
-      { id: 'glass',   name: 'Витражи' },
-      { id: 'toys',    name: 'Игрушки' },
-      { id: 'craft',   name: 'Крафт' }
+      { id: 'hh',    name: 'Хоббихорсы', group: 'hobbyhorsing' },
+      { id: 'ammo',  name: 'Амуниция',   group: 'hobbyhorsing' },
+      { id: 'glass', name: 'Витражи',    group: 'glass' },
+      { id: 'toys',  name: 'Игрушки',    group: 'handmade' },
+      { id: 'craft', name: 'Крафт',      group: 'handmade' }
     ],
 
     items: [
@@ -125,7 +202,7 @@ window.FHh = window.FHh || {};
       {
         id: 'i8', title: 'Витражная подвеска «Спора»', cat: 'glass', price: 1900, old: null,
         status: 'available',
-        desc: '<p>Небольшая подвеска-суncatcher диаметром 9 см. Ловит утренний свет.</p>',
+        desc: '<p>Небольшая подвеска-suncatcher диаметром 9 см. Ловит утренний свет.</p>',
         specs: [['Диаметр', '9 см'], ['Техника', 'Тиффани'], ['Крепление', 'леска + кольцо']],
         images: []
       }
@@ -145,6 +222,50 @@ window.FHh = window.FHh || {};
       if (target[k] === undefined) target[k] = clone(src[k]);
     });
     return target;
+  }
+
+  /* Переезд со схемы 1 (paper/ink/moss/brass, категории без групп).
+     Цвета старой схемы намеренно не тащим: палитра сменилась целиком,
+     иначе владелец увидел бы серую бумагу с новыми акцентами. */
+  function migrate(site) {
+    if (!site || site.schema === SCHEMA) return site;
+
+    var st = site.settings || (site.settings = {});
+    ['paper', 'ink', 'moss', 'brass'].forEach(function (k) { delete st[k]; });
+    delete st.paletteId;
+
+    if (!Array.isArray(site.groups) || !site.groups.length) site.groups = clone(DEFAULTS.groups);
+
+    var byId = {};
+    site.groups.forEach(function (g) { byId[g.id] = true; });
+    var fallback = site.groups[site.groups.length - 1].id;
+    (site.categories || []).forEach(function (c) {
+      if (!c.group || !byId[c.group]) {
+        // старые коды категорий раскладываем по смыслу, остальное — в «прочее»
+        c.group = (c.id === 'hh' || c.id === 'ammo') ? 'hobbyhorsing'
+                : (c.id === 'glass') ? 'glass' : fallback;
+      }
+    });
+
+    // «Ирина» → «Рина» в текстах, которые владелец уже правил
+    ['heroFootL', 'footerNote', 'aboutText', 'contactsText', 'bandText'].forEach(function (k) {
+      if (typeof st[k] === 'string') st[k] = st[k].replace(/Ирина Киприянова/g, 'Рина Киприянова');
+    });
+
+    site.schema = SCHEMA;
+    return site;
+  }
+
+  function normalize(site) {
+    migrate(site);
+    site.settings = deepFill(site.settings || {}, DEFAULTS.settings);
+    if (!Array.isArray(site.items)) site.items = clone(DEFAULTS.items);
+    if (!Array.isArray(site.categories)) site.categories = clone(DEFAULTS.categories);
+    if (!Array.isArray(site.groups) || !site.groups.length) site.groups = clone(DEFAULTS.groups);
+    if (!Array.isArray(site.palettes)) site.palettes = [];
+    if (!site.mediaPub || typeof site.mediaPub !== 'object') site.mediaPub = {};
+    if (!Array.isArray(site.settings.aboutPhotos)) site.settings.aboutPhotos = MASTER_PHOTOS.slice();
+    return site;
   }
 
   /* ---------------- IndexedDB для картинок ---------------- */
@@ -196,13 +317,36 @@ window.FHh = window.FHh || {};
     });
   }
 
-  /* URL картинки: либо внешняя ссылка, либо idb:<key> -> objectURL */
+  /* ---------------- медиа: фото и видео ----------------
+     Ссылка на медиа — строка. Варианты:
+       idb:<key>   — картинка, лежит в IndexedDB этого браузера
+       vdb:<key>   — видео, лежит в IndexedDB этого браузера
+       assets/…    — файл в репозитории (так выглядит опубликованное)
+       https://…   — внешняя ссылка
+     Видео узнаётся по префиксу vdb:, по префиксу video: или по расширению. */
+  var VIDEO_RE = /\.(mp4|webm|ogv|ogg|mov|m4v)(\?|#|$)/i;
+  var VIDEO_EXT = { 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/ogg': 'ogv', 'video/quicktime': 'mov' };
+  var MAX_VIDEO = 40 * 1024 * 1024;
+
+  function mediaKind(ref) {
+    if (!ref) return 'image';
+    if (ref.indexOf('vdb:') === 0 || ref.indexOf('video:') === 0) return 'video';
+    return VIDEO_RE.test(ref) ? 'video' : 'image';
+  }
+  function isBlobRef(ref) {
+    return !!ref && (ref.indexOf('idb:') === 0 || ref.indexOf('vdb:') === 0);
+  }
+  function blobKey(ref) { return ref.slice(4); }
+
   var urlCache = {};
-  function resolveImage(ref) {
+  var blobExt = {};
+
+  function resolveMedia(ref) {
     if (!ref) return Promise.resolve('');
-    if (ref.indexOf('idb:') !== 0) return Promise.resolve(ref);
+    if (ref.indexOf('video:') === 0) return Promise.resolve(ref.slice(6));
+    if (!isBlobRef(ref)) return Promise.resolve(ref);
     if (urlCache[ref]) return Promise.resolve(urlCache[ref]);
-    return idbGet(ref.slice(4)).then(function (blob) {
+    return idbGet(blobKey(ref)).then(function (blob) {
       if (!blob) return '';
       var u = URL.createObjectURL(blob);
       urlCache[ref] = u;
@@ -210,8 +354,65 @@ window.FHh = window.FHh || {};
     }).catch(function () { return ''; });
   }
 
-  /* Сжатие загружаемого файла до разумного размера */
+  function mediaBlob(ref) {
+    if (!isBlobRef(ref)) return Promise.resolve(null);
+    return idbGet(blobKey(ref)).catch(function () { return null; });
+  }
+
+  /* расширение для файла, который уедет в репозиторий */
+  function refExt(ref, blob) {
+    if (blobExt[ref]) return blobExt[ref];
+    var t = (blob && blob.type) || '';
+    if (VIDEO_EXT[t]) return VIDEO_EXT[t];
+    if (t === 'image/webp') return 'webp';
+    if (t === 'image/png') return 'png';
+    if (t === 'image/jpeg') return 'jpg';
+    if (t === 'image/gif') return 'gif';
+    return mediaKind(ref) === 'video' ? 'mp4' : 'webp';
+  }
+
+  /* ---------------- прозрачный фон ----------------
+     Если у картинки есть заметная прозрачная область, витрина подкладывает
+     под неё ту же сгенерированную ботаническую заставку, что и у работ без
+     фото: вырезанный предмет не висит в пустоте. Считаем один раз на ссылку. */
+  var alphaCache = {};
+  function hasAlpha(ref) {
+    if (!ref || mediaKind(ref) === 'video') return Promise.resolve(false);
+    if (alphaCache[ref] !== undefined) return Promise.resolve(alphaCache[ref]);
+    return resolveMedia(ref).then(function (u) {
+      if (!u) return false;
+      return new Promise(function (res) {
+        var im = new Image();
+        // чужой домен без CORS испачкает канву — тогда считаем картинку непрозрачной
+        if (/^https?:\/\//i.test(u) && u.indexOf(location.origin) !== 0) im.crossOrigin = 'anonymous';
+        im.onload = function () {
+          try {
+            var n = 48;
+            var sc = Math.min(1, n / Math.max(im.naturalWidth, im.naturalHeight, 1));
+            var c = document.createElement('canvas');
+            c.width = Math.max(1, Math.round(im.naturalWidth * sc));
+            c.height = Math.max(1, Math.round(im.naturalHeight * sc));
+            var g = c.getContext('2d', { willReadFrequently: true });
+            g.drawImage(im, 0, 0, c.width, c.height);
+            var d = g.getImageData(0, 0, c.width, c.height).data;
+            var clear = 0, total = d.length / 4, i;
+            for (i = 3; i < d.length; i += 4) if (d[i] < 245) clear++;
+            // одиночные полупрозрачные точки по краю есть у многих картинок,
+            // поэтому фон считаем прозрачным только начиная с заметной доли
+            res(clear > total * 0.06);
+          } catch (e) { res(false); }
+        };
+        im.onerror = function () { res(false); };
+        im.src = u;
+      });
+    }).then(function (v) { alphaCache[ref] = v; return v; });
+  }
+
+  /* ---------------- приём файла ----------------
+     Картинки ужимаются и переводятся в webp. Видео кладём как есть:
+     перекодировать его в браузере нечем, а исходник обычно уже сжат. */
   function ingestFile(file, maxSide) {
+    if (/^video\//.test(file.type)) return ingestVideo(file);
     maxSide = maxSide || 1600;
     return new Promise(function (res, rej) {
       if (!/^image\//.test(file.type)) { rej(new Error('not an image')); return; }
@@ -242,6 +443,28 @@ window.FHh = window.FHh || {};
     });
   }
 
+  function ingestVideo(file) {
+    if (file.size > MAX_VIDEO) {
+      return Promise.reject(new Error('Видео тяжелее 40 МБ: сожмите его или вставьте ссылкой'));
+    }
+    var key = uid();
+    return idbPut(key, file).then(function () {
+      var ref = 'vdb:' + key;
+      urlCache[ref] = URL.createObjectURL(file);
+      blobExt[ref] = VIDEO_EXT[file.type] || 'mp4';
+      return ref;
+    });
+  }
+
+  /* все ссылки на локальные медиа, которые сейчас используются */
+  function usedBlobRefs() {
+    var refs = [];
+    function want(r) { if (isBlobRef(r) && refs.indexOf(r) < 0) refs.push(r); }
+    (state.items || []).forEach(function (it) { (it.images || []).forEach(want); });
+    ((state.settings || {}).aboutPhotos || []).forEach(want);
+    return refs;
+  }
+
   /* ---------------- состояние ---------------- */
   var state = null;
 
@@ -250,11 +473,7 @@ window.FHh = window.FHh || {};
     try { raw = localStorage.getItem(LS_KEY); } catch (e) { /* приватный режим */ }
     if (raw) {
       try {
-        var parsed = JSON.parse(raw);
-        parsed.settings = deepFill(parsed.settings || {}, DEFAULTS.settings);
-        if (!Array.isArray(parsed.items)) parsed.items = clone(DEFAULTS.items);
-        if (!Array.isArray(parsed.categories)) parsed.categories = clone(DEFAULTS.categories);
-        state = parsed;
+        state = normalize(JSON.parse(raw));
         return state;
       } catch (e) { /* битый JSON — берём дефолт */ }
     }
@@ -304,12 +523,12 @@ window.FHh = window.FHh || {};
           // задан: у нового посетителя его нет, и тогда работает опубликованный
           var keepPass = state && state.settings ? state.settings.adminPass : undefined;
           var keepHash = state && state.settings ? state.settings.adminPassHash : '';
-          site.settings = deepFill(site.settings, DEFAULTS.settings);
+          normalize(site);
           if (keepPass !== undefined) site.settings.adminPass = keepPass;
           if (keepHash) site.settings.adminPassHash = keepHash;
           site.savedAt = pack.publishedAt || site.publishedAt || new Date().toISOString();
           state = site;
-          urlCache = {};
+          urlCache = {}; alphaCache = {};
           try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
           return { source: 'published', changed: true, published: published };
         });
@@ -325,12 +544,10 @@ window.FHh = window.FHh || {};
 
   function exportJSON() {
     // выгружаем вместе с картинками в base64, чтобы бэкап был самодостаточным
-    var refs = [];
-    state.items.forEach(function (it) {
-      (it.images || []).forEach(function (r) { if (r.indexOf('idb:') === 0 && refs.indexOf(r) < 0) refs.push(r); });
-    });
+    var refs = usedBlobRefs();
+
     return Promise.all(refs.map(function (r) {
-      return idbGet(r.slice(4)).then(function (blob) {
+      return mediaBlob(r).then(function (blob) {
         if (!blob) return null;
         return new Promise(function (res) {
           var fr = new FileReader();
@@ -348,7 +565,7 @@ window.FHh = window.FHh || {};
       var pub = clone(state);
       delete pub.settings.adminPass;
       delete pub.settings.adminPassHash;
-      return JSON.stringify({ v: 1, exported: now, publishedAt: now, site: pub, media: media }, null, 2);
+      return JSON.stringify({ v: 2, exported: now, publishedAt: now, site: pub, media: media }, null, 2);
     });
   }
 
@@ -365,28 +582,19 @@ window.FHh = window.FHh || {};
     })).then(function () {
       var keepPass = state && state.settings ? state.settings.adminPass : undefined;
       var keepHash = state && state.settings ? state.settings.adminPassHash : undefined;
-      site.settings = deepFill(site.settings, DEFAULTS.settings);
+      normalize(site);
       if (site.settings.adminPass === undefined && keepPass !== undefined) site.settings.adminPass = keepPass;
       if (!site.settings.adminPassHash && keepHash) site.settings.adminPassHash = keepHash;
       state = site;
-      urlCache = {};
+      urlCache = {}; alphaCache = {};
       save();
       return state;
     });
   }
 
   /* ---------------- публикация прямо из браузера ----------------
-     Пишем data/site.json в репозиторий через GitHub Contents API.
+     Пишем витрину в репозиторий через Git Data API одним коммитом.
      Токен приходит параметром, нигде не сохраняется и не логируется. */
-  function b64utf8(str) {
-    var bytes = new TextEncoder().encode(str);
-    var bin = '', chunk = 0x8000, i;
-    for (i = 0; i < bytes.length; i += chunk) {
-      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-    }
-    return btoa(bin);
-  }
-
   function ghError(r) {
     return r.json().catch(function () { return {}; }).then(function (e) {
       var msg = e.message || ('HTTP ' + r.status);
@@ -412,64 +620,223 @@ window.FHh = window.FHh || {};
     }).then(function (r) { return r.ok; }).catch(function () { return false; });
   }
 
-  function publishToGitHub(token, message) {
+  /* Файлы медиа уезжают в репозиторий отдельными файлами, а не base64 внутри
+     site.json. Так посетитель не качает всю витрину одним куском, GitHub Pages
+     отдаёт картинки с кешем, а сам site.json остаётся в пару десятков КБ.
+     Всё — одним коммитом через Git Data API, иначе Actions пересобирал бы
+     сайт на каждый файл. */
+  var MEDIA_DIR = 'assets/media';
+
+  function blobToBase64(blob) {
+    return new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onload = function () {
+        var s = String(fr.result);
+        res(s.slice(s.indexOf(',') + 1));
+      };
+      fr.onerror = function () { rej(new Error('не удалось прочитать файл')); };
+      fr.readAsDataURL(blob);
+    });
+  }
+
+  /* Что именно уедет: новые файлы + карта «ссылка -> путь в репозитории» */
+  function collectMedia() {
+    var pub = state.mediaPub || (state.mediaPub = {});
+    var refs = usedBlobRefs();
+    var map = {}, fresh = [];
+    return refs.reduce(function (chain, ref) {
+      return chain.then(function () {
+        if (pub[ref]) { map[ref] = pub[ref]; return null; }
+        return mediaBlob(ref).then(function (blob) {
+          if (!blob) return null;
+          var path = MEDIA_DIR + '/' + blobKey(ref) + '.' + refExt(ref, blob);
+          map[ref] = path;
+          return blobToBase64(blob).then(function (b64) {
+            fresh.push({ ref: ref, path: path, base64: b64, bytes: blob.size });
+          });
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      return { map: map, fresh: fresh };
+    });
+  }
+
+  /* Копия витрины для публикации: локальные ссылки заменены путями файлов */
+  function publishPack(map) {
+    var pub = clone(state);
+    delete pub.settings.adminPass;
+    delete pub.settings.adminPassHash;
+    delete pub.mediaPub;
+    (pub.items || []).forEach(function (it) {
+      it.images = (it.images || []).map(function (r) { return map[r] || r; });
+    });
+    pub.settings.aboutPhotos = (pub.settings.aboutPhotos || []).map(function (r) { return map[r] || r; });
+    var now = new Date().toISOString();
+    pub.savedAt = now;
+    return JSON.stringify({ v: 2, exported: now, publishedAt: now, site: pub, media: {} }, null, 2);
+  }
+
+  function publishToGitHub(token, message, onStep) {
     var cfg = (window.FHH_CONFIG || {}).github || {};
     if (!cfg.owner || !cfg.repo) {
       return Promise.reject(new Error('В config.js не заполнен раздел github'));
     }
     var branch = cfg.branch || 'main';
     var path = cfg.path || 'data/site.json';
-    var api = 'https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' + path;
+    var base = 'https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo;
     var H = {
       'Authorization': 'Bearer ' + token,
       'Accept': 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
       'Content-Type': 'application/json'
     };
+    var step = onStep || function () {};
 
-    return exportJSON().then(function (json) {
-      var body = { message: message || 'Витрина: обновление содержимого', content: b64utf8(json), branch: branch };
-      // текущий sha нужен, чтобы перезаписать существующий файл
-      return fetch(api + '?ref=' + encodeURIComponent(branch), { headers: H })
-        .then(function (r) {
-          if (r.status === 404) return null;
-          if (!r.ok) return ghError(r);
-          return r.json();
-        })
-        .then(function (cur) {
-          if (cur && cur.sha) body.sha = cur.sha;
-          return fetch(api, { method: 'PUT', headers: H, body: JSON.stringify(body) });
-        })
-        .then(function (r) {
-          if (!r.ok) return ghError(r);
-          return r.json();
-        })
-        .then(function (res) {
-          return { commit: res.commit && res.commit.sha ? res.commit.sha.slice(0, 7) : '', bytes: json.length };
+    function post(url, body) {
+      return fetch(base + url, { method: 'POST', headers: H, body: JSON.stringify(body) })
+        .then(function (r) { return r.ok ? r.json() : ghError(r); });
+    }
+    function get(url) {
+      return fetch(base + url, { headers: H })
+        .then(function (r) { return r.ok ? r.json() : ghError(r); });
+    }
+
+    var pack, files, headSha, treeSha, bytes = 0;
+
+    step('собираем файлы…');
+    return collectMedia().then(function (m) {
+      files = m.fresh;
+      pack = publishPack(m.map);
+      bytes = pack.length + files.reduce(function (n, f) { return n + f.bytes; }, 0);
+
+      // 1. новые медиа -> git-блобы
+      var i = 0;
+      return files.reduce(function (chain, f) {
+        return chain.then(function () {
+          step('загружаем файл ' + (++i) + ' из ' + files.length + '…');
+          return post('/git/blobs', { content: f.base64, encoding: 'base64' })
+            .then(function (r) { f.sha = r.sha; });
         });
+      }, Promise.resolve());
+    }).then(function () {
+      step('читаем ветку…');
+      return get('/git/ref/heads/' + encodeURIComponent(branch));
+    }).then(function (r) {
+      headSha = r.object.sha;
+      return get('/git/commits/' + headSha);
+    }).then(function (c) {
+      treeSha = c.tree.sha;
+      step('собираем коммит…');
+      var tree = files.map(function (f) {
+        return { path: f.path, mode: '100644', type: 'blob', sha: f.sha };
+      });
+      tree.push({ path: path, mode: '100644', type: 'blob', content: pack });
+      return post('/git/trees', { base_tree: treeSha, tree: tree });
+    }).then(function (t) {
+      return post('/git/commits', {
+        message: message || ('Витрина: обновление содержимого' +
+          (files.length ? ' (+' + files.length + ' файл(ов) медиа)' : '')),
+        tree: t.sha,
+        parents: [headSha]
+      });
+    }).then(function (c) {
+      step('обновляем ветку…');
+      return fetch(base + '/git/refs/heads/' + encodeURIComponent(branch), {
+        method: 'PATCH', headers: H, body: JSON.stringify({ sha: c.sha })
+      }).then(function (r) { return r.ok ? r.json() : ghError(r); })
+        .then(function () { return c; });
+    }).then(function (c) {
+      // запоминаем, что эти файлы уже в репозитории — второй раз не польются
+      files.forEach(function (f) { state.mediaPub[f.ref] = f.path; });
+      save();
+      return { commit: (c.sha || '').slice(0, 7), bytes: bytes, files: files.length, json: pack.length };
     });
+  }
+
+  /* Оценка веса публикации — панель показывает её до отправки */
+  function publishSize() {
+    var refs = usedBlobRefs();
+    var pub = state.mediaPub || {};
+    var newRefs = refs.filter(function (r) { return !pub[r]; });
+    return Promise.all(newRefs.map(mediaBlob)).then(function (list) {
+      var bytes = 0, videos = 0, biggest = 0;
+      list.forEach(function (b, i) {
+        if (!b) return;
+        bytes += b.size;
+        if (b.size > biggest) biggest = b.size;
+        if (mediaKind(newRefs[i]) === 'video') videos++;
+      });
+      return { files: newRefs.length, bytes: bytes, videos: videos, biggest: biggest };
+    });
+  }
+
+  /* ---------------- справочники по витрине ---------------- */
+  function cat(id) {
+    return (state.categories || []).filter(function (x) { return x.id === id; })[0] || null;
+  }
+  function group(id) {
+    return (state.groups || []).filter(function (x) { return x.id === id; })[0] || null;
+  }
+  function groupOfItem(it) {
+    var c = cat(it && it.cat);
+    return c ? c.group : '';
+  }
+  function catsOfGroup(gid) {
+    return (state.categories || []).filter(function (c) { return c.group === gid; });
+  }
+  function itemsOfGroup(gid) {
+    return (state.items || []).filter(function (it) { return !it.hidden && groupOfItem(it) === gid; });
   }
 
   /* ---------------- публичный API ---------------- */
   NS.store = {
     DEFAULTS: DEFAULTS,
+    TOKENS: TOKENS,
+    ROLES: ROLES,
+    BUILTIN_PALETTES: BUILTIN_PALETTES,
+    MASTER_PHOTOS: MASTER_PHOTOS,
+    SCHEMA: SCHEMA,
     get state() { return state || load(); },
     load: load,
     save: save,
     hydrate: hydrate,
     publishToGitHub: publishToGitHub,
+    publishSize: publishSize,
     checkGitHubToken: checkGitHubToken,
     reset: reset,
     uid: uid,
     clone: clone,
-    resolveImage: resolveImage,
+    resolveImage: resolveMedia,
+    resolveMedia: resolveMedia,
+    mediaKind: mediaKind,
+    isBlobRef: isBlobRef,
+    hasAlpha: hasAlpha,
     ingestFile: ingestFile,
-    dropImage: function (ref) { if (ref && ref.indexOf('idb:') === 0) { delete urlCache[ref]; return idbDel(ref.slice(4)); } return Promise.resolve(); },
+    usedBlobRefs: usedBlobRefs,
+    dropImage: function (ref) {
+      if (isBlobRef(ref)) { delete urlCache[ref]; delete alphaCache[ref]; return idbDel(blobKey(ref)); }
+      return Promise.resolve();
+    },
     exportJSON: exportJSON,
     importJSON: importJSON,
-    catName: function (id) {
-      var c = (state.categories || []).filter(function (x) { return x.id === id; })[0];
-      return c ? c.name : '';
+    cat: cat,
+    group: group,
+    groupOfItem: groupOfItem,
+    catsOfGroup: catsOfGroup,
+    itemsOfGroup: itemsOfGroup,
+    catName: function (id) { var c = cat(id); return c ? c.name : ''; },
+    groupName: function (id) { var g = group(id); return g ? g.name : ''; },
+    /* цвет роли: roleAccent -> 'rust' -> '#d9772f' */
+    roleColor: function (role) {
+      var st = state.settings;
+      var tok = st[role];
+      return st[tok] || tok || st.ink;
+    },
+    allPalettes: function () {
+      return BUILTIN_PALETTES.concat(state.palettes || []);
+    },
+    statusLabel: function (s) {
+      return s === 'sold' ? 'продано' : s === 'order' ? 'под заказ' : 'в наличии';
     },
     money: function (n) {
       if (n === null || n === undefined || n === '') return '—';

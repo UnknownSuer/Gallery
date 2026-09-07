@@ -43,11 +43,14 @@ window.FHh = window.FHh || {};
   function rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
   function mix(a, b, t) { return [Math.round(lerp(a[0], b[0], t)), Math.round(lerp(a[1], b[1], t)), Math.round(lerp(a[2], b[2], t))]; }
 
+  /* Ботаника берёт цвета из палитры сайта. Внутренние имена остались
+     прежними (moss / brass), но приходят они из токенов olive и rust —
+     их значения всегда лежат в переменных живым hex, а не через var(). */
   function palette() {
-    var moss = hex2rgb(cssVar('--moss', '#4a5f4a'));
-    var ink = hex2rgb(cssVar('--ink', '#191b18'));
-    var brass = hex2rgb(cssVar('--brass', '#b08a4e'));
-    var paper = hex2rgb(cssVar('--paper', '#f4f2ec'));
+    var moss = hex2rgb(cssVar('--olive', '#9b8f6d'));
+    var ink = hex2rgb(cssVar('--ink', '#231f20'));
+    var brass = hex2rgb(cssVar('--rust', '#d9772f'));
+    var paper = hex2rgb(cssVar('--paper', '#eedbb3'));
     return {
       moss: moss, ink: ink, brass: brass, paper: paper,
       deep: mix(moss, ink, .55),
