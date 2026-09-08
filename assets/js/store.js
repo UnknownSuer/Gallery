@@ -45,6 +45,20 @@ window.FHh = window.FHh || {};
     { id: 'glass',    name: 'Витраж',         paper: '#f0ece1', ink: '#171a21', rust: '#bf6231', olive: '#7d8a63', emerald: '#1c6f68' }
   ];
 
+  /* ---------------- акцентный шрифт ----------------
+     Заголовки, логотип и кнопки. Все варианты с кириллицей; своё
+     начертание грузится файлом и живёт рядом с фотографиями. */
+  var FONTS = [
+    { id: 'jura',       name: 'Jura — рунический',        family: '"Jura"',           spec: 'Jura:wght@300;400;500;600;700' },
+    { id: 'unbounded',  name: 'Unbounded — плотный',      family: '"Unbounded"',      spec: 'Unbounded:wght@400;600;700' },
+    { id: 'ruslan',     name: 'Ruslan Display — славянский', family: '"Ruslan Display"', spec: 'Ruslan+Display' },
+    { id: 'philosopher', name: 'Philosopher — мягкий',    family: '"Philosopher"',    spec: 'Philosopher:wght@400;700' },
+    { id: 'yeseva',     name: 'Yeseva One — акцидентный', family: '"Yeseva One"',     spec: 'Yeseva+One' },
+    { id: 'marmelad',   name: 'Marmelad — округлый',      family: '"Marmelad"',       spec: 'Marmelad' },
+    { id: 'play',       name: 'Play — техничный',         family: '"Play"',           spec: 'Play:wght@400;700' },
+    { id: 'manrope',    name: 'Manrope — спокойный',      family: '"Manrope"',        spec: 'Manrope:wght@400;500;600;700' }
+  ];
+
   var MASTER_PHOTOS = [
     'assets/img/master/m01.webp', 'assets/img/master/m02.webp', 'assets/img/master/m03.webp',
     'assets/img/master/m04.webp', 'assets/img/master/m05.webp', 'assets/img/master/m06.webp',
@@ -108,7 +122,10 @@ window.FHh = window.FHh || {};
       roleBotany: 'emerald',
 
       /* оформление: типографика */
-      fontPreset: 'rune',     // rune | clean
+      fontPreset: 'rune',      // rune | clean — насколько рунические подписи
+      fontDisplay: 'jura',     // акцентный шрифт: id из FONTS или 'custom'
+      fontCustom: '',          // ссылка на загруженный файл шрифта
+      fontCustomName: '',
       fontScale: 1,
 
       /* оформление: движение */
@@ -334,11 +351,13 @@ window.FHh = window.FHh || {};
 
   function mediaKind(ref) {
     if (!ref) return 'image';
+    if (ref.indexOf('fnt:') === 0 || /\.(woff2?|ttf|otf)(\?|#|$)/i.test(ref)) return 'font';
     if (ref.indexOf('vdb:') === 0 || ref.indexOf('video:') === 0) return 'video';
     return VIDEO_RE.test(ref) ? 'video' : 'image';
   }
   function isBlobRef(ref) {
-    return !!ref && (ref.indexOf('idb:') === 0 || ref.indexOf('vdb:') === 0);
+    return !!ref && (ref.indexOf('idb:') === 0 || ref.indexOf('vdb:') === 0 ||
+                     ref.indexOf('fnt:') === 0);
   }
   function blobKey(ref) { return ref.slice(4); }
 
@@ -365,6 +384,10 @@ window.FHh = window.FHh || {};
 
   /* расширение для файла, который уедет в репозиторий */
   function refExt(ref, blob) {
+    if (ref.indexOf('fnt:') === 0) {
+      var dot = ref.lastIndexOf('.');
+      return dot > 4 ? ref.slice(dot + 1) : 'woff2';
+    }
     if (blobExt[ref]) return blobExt[ref];
     var t = (blob && blob.type) || '';
     if (VIDEO_EXT[t]) return VIDEO_EXT[t];
@@ -466,7 +489,24 @@ window.FHh = window.FHh || {};
     function want(r) { if (isBlobRef(r) && refs.indexOf(r) < 0) refs.push(r); }
     (state.items || []).forEach(function (it) { (it.images || []).forEach(want); });
     ((state.settings || {}).aboutPhotos || []).forEach(want);
+    want((state.settings || {}).fontCustom);
     return refs;
+  }
+
+  /* Своё начертание кладём как есть: расширение зашиваем в ссылку, иначе
+     после перезагрузки не из чего собрать имя файла для публикации. */
+  function ingestFont(file) {
+    var m = /\.(woff2|woff|ttf|otf)$/i.exec(file.name || '');
+    var ext = m ? m[1].toLowerCase() : 'woff2';
+    if (file.size > 4 * 1024 * 1024) {
+      return Promise.reject(new Error('Файл шрифта тяжелее 4 МБ'));
+    }
+    var key = uid() + '.' + ext;
+    return idbPut(key, file).then(function () {
+      var ref = 'fnt:' + key;
+      urlCache[ref] = URL.createObjectURL(file);
+      return ref;
+    });
   }
 
   /* ---------------- состояние ---------------- */
@@ -816,6 +856,8 @@ window.FHh = window.FHh || {};
     isBlobRef: isBlobRef,
     hasAlpha: hasAlpha,
     ingestFile: ingestFile,
+    ingestFont: ingestFont,
+    FONTS: FONTS,
     usedBlobRefs: usedBlobRefs,
     dropImage: function (ref) {
       if (isBlobRef(ref)) { delete urlCache[ref]; delete alphaCache[ref]; return idbDel(blobKey(ref)); }

@@ -76,6 +76,7 @@ window.FHh = window.FHh || {};
     var about = $('.about');
     if (about) about.classList.toggle('is-left', st.aboutSide === 'left');
     body.dataset.font = st.fontPreset || 'rune';
+    applyDisplayFont(st);
     body.dataset.lineart = st.lineart ? '1' : '0';
     body.dataset.drift = st.aboutDrift ? '1' : '0';
 
@@ -107,6 +108,46 @@ window.FHh = window.FHh || {};
     $('#heroCount').textContent = n + ' ' + plural(n, 'работа', 'работы', 'работ') + ' в витрине';
 
     paintMarks();
+  }
+
+  /* ---------------- акцентный шрифт ----------------
+     Готовые начертания подтягиваются с Google Fonts одним <link>, своё —
+     собирается из файла через FontFace. Меняется на лету, без перезагрузки. */
+  var fontLoaded = '';
+  function applyDisplayFont(st) {
+    var r = document.documentElement.style;
+    var id = st.fontDisplay || 'jura';
+
+    if (id === 'custom' && st.fontCustom) {
+      if (fontLoaded !== st.fontCustom) {
+        fontLoaded = st.fontCustom;
+        S.resolveMedia(st.fontCustom).then(function (u) {
+          if (!u || !window.FontFace) return;
+          var ff = new FontFace('FHhCustom', 'url("' + u + '")');
+          ff.load().then(function (f) {
+            document.fonts.add(f);
+            r.setProperty('--f-display', '"FHhCustom","Jura","Segoe UI",Arial,sans-serif');
+          }).catch(function () { r.setProperty('--f-display', '"Jura","Segoe UI",Arial,sans-serif'); });
+        });
+      }
+      return;
+    }
+
+    var font = (S.FONTS || []).filter(function (f) { return f.id === id; })[0] || (S.FONTS || [])[0];
+    if (!font) return;
+    // Jura и Manrope уже в разметке — второй запрос им не нужен
+    if (font.id !== 'jura' && font.id !== 'manrope' && fontLoaded !== font.id) {
+      var link = $('#fontExtra');
+      if (!link) {
+        link = document.createElement('link');
+        link.id = 'fontExtra';
+        link.rel = 'stylesheet';
+        document.head.appendChild(link);
+      }
+      link.href = 'https://fonts.googleapis.com/css2?family=' + font.spec + '&display=swap';
+    }
+    fontLoaded = font.id;
+    r.setProperty('--f-display', font.family + ',"Segoe UI",Arial,sans-serif');
   }
 
   /* пустая витрина: маскот вместо голой строки */
@@ -651,6 +692,8 @@ window.FHh = window.FHh || {};
   var driftFocus = null;
   var driftScrim = null;
   var driftZoom = null;
+  var hoverT = 0;
+  var focusClosedAt = 0;
 
   var REP_R = 260;    // радиус «испуга», px
   var REP_F = 2600;   // сила отталкивания
@@ -730,13 +773,20 @@ window.FHh = window.FHh || {};
         if (touchLayout() || driftFocus) return;
         driftHover = t;
         d.classList.add('is-near');
+        // на десктопе снимок под курсором выходит вперёд, а соседи разбегаются
+        clearTimeout(hoverT);
+        if (Date.now() - focusClosedAt > 450) {
+          hoverT = setTimeout(function () {
+            if (driftHover === t && !driftFocus) openFocus(t);
+          }, 180);
+        }
       });
       d.addEventListener('pointerleave', function () {
+        clearTimeout(hoverT);
         if (driftHover === t) driftHover = null;
         d.classList.remove('is-near');
       });
       d.addEventListener('click', function () {
-        if (!touchLayout()) return;
         if (driftFocus === t) closeFocus(); else openFocus(t);
       });
     });
@@ -917,21 +967,33 @@ window.FHh = window.FHh || {};
     if (src) big.src = src.currentSrc || src.src;
     driftZoom.appendChild(big);
     driftZoom.addEventListener('click', closeFocus);
+    if (!touchLayout()) {
+      driftZoom.addEventListener('pointerleave', function (e) {
+        if (e.pointerType !== 'touch') closeFocus();
+      });
+    }
     document.body.appendChild(driftZoom);
   }
 
   function closeFocus() {
+    clearTimeout(hoverT);
     if (driftFocus) {
       driftFocus.el.classList.remove('is-dim');
       driftFocus = null;
+      focusClosedAt = Date.now();
     }
     if (driftZoom && driftZoom.parentNode) driftZoom.parentNode.removeChild(driftZoom);
     driftZoom = null;
     if (driftScrim) driftScrim.classList.remove('is-on');
   }
 
+  var lastW = window.innerWidth, reflowT = 0;
   window.addEventListener('resize', function () {
-    if (driftTiles.length) layoutDrift();
+    if (!driftTiles.length) { lastW = window.innerWidth; return; }
+    if (Math.abs(window.innerWidth - lastW) < 2) return;   // менялась только высота
+    lastW = window.innerWidth;
+    clearTimeout(reflowT);
+    reflowT = setTimeout(layoutDrift, 120);
   });
 
   /* ---------------- разделы ---------------- */

@@ -52,10 +52,11 @@
   --anim:1;
 }
 
-/* «чистая» типографика: рунический строй остаётся только в подписях */
+/* «спокойные» подписи: рунический строй уходит из мелких надписей,
+   акцентный шрифт заголовков задаётся отдельно в панели */
 body[data-font="clean"]{
-  --f-display:"Manrope","Segoe UI",Arial,sans-serif;
-  --mono-track:.06em;
+  --f-mono:"Manrope","Segoe UI",Calibri,Arial,sans-serif;
+  --mono-track:.04em;
 }
 
 *,*::before,*::after{box-sizing:border-box}
@@ -123,8 +124,7 @@ body[data-phase="live"] .pre__hud{opacity:0;transform:translateY(26px)}
   padding:14px var(--gut);
   padding-top:max(14px,env(safe-area-inset-top));
   opacity:0;transform:translateY(-12px);
-  transition:opacity .6s var(--ease),transform .7s var(--ease),
-             background .35s,border-color .35s;
+  transition:opacity .6s var(--ease),transform .7s var(--ease);
   border-bottom:1px solid transparent}
 body[data-phase="live"] .nav{opacity:1;transform:none;transition-delay:.15s}
 /* Никакого backdrop-filter у шапки: он делает .nav содержащим блоком для
@@ -338,8 +338,9 @@ body[data-phase="live"] .hero__foot{opacity:1}
 
 .card__media{position:relative;width:100%;overflow:hidden;background:var(--paper-2);
   /* ширина задана явно: иначе браузер выводит её из max-height по пропорции
-     и кадр съезжает внутри ячейки */
-  aspect-ratio:4/5;max-height:min(64vh,720px)}
+     и кадр съезжает внутри ячейки. Высоту меряем малым вьюпортом — с vh
+     на iOS кадр перекраивался каждый раз, когда прячется адресная строка */
+  aspect-ratio:4/5;max-height:min(64vh,720px);max-height:min(64svh,720px)}
 .card__img{width:100%;height:100%;object-fit:cover;display:block;background:var(--paper-2);
   transition:transform 1.2s var(--ease),opacity .5s;will-change:transform}
 .card:hover .card__img{transform:scale(1.045)}
@@ -421,7 +422,8 @@ body[data-phase="live"] .hero__foot{opacity:1}
 /* Поле, по которому плавают снимки. Координаты считает ui.js: у каждого
    кадра своя скорость, борта отбивают, центральный кадр обходят, а от
    того, на который навели курсор, остальные разбегаются. */
-.drift{position:relative;width:100%;min-width:0;aspect-ratio:1/1.08;min-height:340px}
+.drift{position:relative;width:100%;min-width:0;
+  height:min(74vh,620px);height:min(74svh,620px);min-height:340px}
 .drift__ph{position:absolute;left:0;top:0;width:120px;
   overflow:hidden;background:var(--paper-2);cursor:pointer;
   box-shadow:0 10px 32px -18px color-mix(in srgb,var(--ink) 60%,transparent);
@@ -438,7 +440,7 @@ body[data-phase="live"] .hero__foot{opacity:1}
   background:color-mix(in srgb,var(--ink) 68%,transparent);
   opacity:0;pointer-events:none;transition:opacity .35s}
 .drift__scrim.is-on{opacity:1;pointer-events:auto}
-.drift__ph.is-dim{opacity:.25}
+.drift__ph.is-dim{opacity:.2}
 /* Раскрытый кадр показывается отдельным слоем прямо в <body>: внутри
    секции он попадал в её контекст наложения — затемнение накрывало его
    целиком, а position:fixed считался от анимированного предка. */
@@ -809,7 +811,7 @@ body.is-gsheet{overflow:hidden}
        и низ карточки вместе с кнопкой уезжал под панель браузера */
     grid-template-rows:minmax(0,42%) minmax(0,1fr)}
   .about{grid-template-columns:minmax(0,1fr);gap:clamp(28px,5vw,48px)}
-  .drift{aspect-ratio:1/.8;min-height:0}
+  .drift{min-height:0;height:min(66vh,520px);height:min(66svh,520px)}
   .hero__lineart{width:min(58vw,460px);height:min(60vh,520px);right:-10%}
 }
 
@@ -832,14 +834,14 @@ body.is-gsheet{overflow:hidden}
   .burger{display:inline-flex}
   .admin__win{inset:0}
   .admin__tabs{order:3;width:100%;margin-left:0}
-  .drift{aspect-ratio:auto;min-height:0;width:100%;
+  .drift{min-height:0;width:100%;
     height:min(72vh,520px);height:min(72svh,520px)}
   .gpanel__close{right:12px;top:10px;padding:10px 13px}
 }
 
 @media (max-width:640px){
   .grid{grid-template-columns:1fr}
-  .card__media{aspect-ratio:3/4;max-height:74vh}
+  .card__media{aspect-ratio:3/4;max-height:74vh;max-height:74svh}
   .card__cap{padding:14px 16px 20px}
   .cardmode{display:inline-flex}
 
@@ -860,9 +862,9 @@ body.is-gsheet{overflow:hidden}
   .hero__foot{position:static;margin-top:26px;opacity:1;transition:none}
   .filters{width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
     padding-bottom:2px;margin:0 calc(var(--gut) * -1);padding-left:var(--gut);
-    padding-right:var(--gut);scroll-snap-type:x proximity}
+    padding-right:var(--gut)}
   .filters::-webkit-scrollbar{display:none}
-  .filters button{flex:none;scroll-snap-align:start}
+  .filters button{flex:none}
   .head{padding-bottom:16px}
   .sheet__panel{grid-template-rows:minmax(0,38%) minmax(0,1fr)}
   .sheet__body{padding:22px 18px 32px}

@@ -1,7 +1,7 @@
 {
   "v": 2,
-  "exported": "2026-09-08T07:36:08.075Z",
-  "publishedAt": "2026-09-08T07:36:08.075Z",
+  "exported": "2026-09-08T08:03:31.177Z",
+  "publishedAt": "2026-09-08T08:03:31.177Z",
   "site": {
     "schema": 2,
     "settings": {
@@ -34,6 +34,9 @@
       "roleLogo": "olive",
       "roleBotany": "emerald",
       "fontPreset": "rune",
+      "fontDisplay": "jura",
+      "fontCustom": "",
+      "fontCustomName": "",
       "fontScale": 1,
       "anim": 1,
       "density": 1,
@@ -295,7 +298,7 @@
         "images": []
       }
     ],
-    "savedAt": "2026-09-08T07:36:08.075Z"
+    "savedAt": "2026-09-08T08:03:31.177Z"
   },
   "media": {}
 }

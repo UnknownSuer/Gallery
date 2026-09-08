@@ -639,13 +639,28 @@ window.FHh = window.FHh || {};
 
       '<h4>Типографика</h4>' +
       '<div class="cols">' +
-        field('Шрифтовой строй', '<select data-s="fontPreset">' +
-          '<option value="rune"' + (st.fontPreset === 'rune' ? ' selected' : '') + '>Рунический (Jura) — заголовки и подписи</option>' +
-          '<option value="clean"' + (st.fontPreset === 'clean' ? ' selected' : '') + '>Спокойный — руны только в подписях</option>' +
-        '</select>') +
+        field('Акцентный шрифт', '<select data-s="fontDisplay">' +
+          S.FONTS.map(function (f) {
+            return '<option value="' + f.id + '"' + (st.fontDisplay === f.id ? ' selected' : '') +
+              '>' + esc(f.name) + '</option>';
+          }).join('') +
+          '<option value="custom"' + (st.fontDisplay === 'custom' ? ' selected' : '') + '>' +
+            (st.fontCustomName ? 'Свой: ' + esc(st.fontCustomName) : 'Свой файл…') + '</option>' +
+        '</select>', 'Заголовки, логотип и кнопки. Подписи остаются руническими.') +
         field('Масштаб шрифта: <b id="vFs">' + st.fontScale + '</b>',
           '<input type="range" min="0.9" max="1.25" step="0.01" data-s="fontScale" value="' + st.fontScale + '">') +
       '</div>' +
+      '<div class="toolbar">' +
+        '<button class="btn btn--ghost" data-act="fontup">Загрузить свой шрифт</button>' +
+        '<input type="file" id="fontInp" accept=".woff2,.woff,.ttf,.otf" hidden>' +
+        (st.fontCustom ? '<button class="btn btn--ghost" data-act="fontdel">Убрать свой шрифт</button>' : '') +
+        '<span class="hint" style="margin:0">woff2, woff, ttf или otf до 4 МБ. Файл уедет ' +
+        'в репозиторий вместе с фотографиями.</span>' +
+      '</div>' +
+      field('Подписи', '<select data-s="fontPreset">' +
+        '<option value="rune"' + (st.fontPreset === 'rune' ? ' selected' : '') + '>рунические (Jura)</option>' +
+        '<option value="clean"' + (st.fontPreset === 'clean' ? ' selected' : '') + '>спокойные</option>' +
+      '</select>') +
 
       '<h4>Декор и движение</h4>' +
       field('Лайнарт головы фоном',
@@ -683,6 +698,27 @@ window.FHh = window.FHh || {};
     };
     $('#adminBody').onchange = $('#adminBody').oninput;
 
+    var fi = $('#fontInp');
+    if (fi) fi.addEventListener('change', function () {
+      var file = fi.files[0];
+      fi.value = '';
+      if (!file) return;
+      status('загружаем шрифт…');
+      S.ingestFont(file).then(function (ref) {
+        var st = S.state.settings;
+        if (st.fontCustom) S.dropImage(st.fontCustom);
+        st.fontCustom = ref;
+        st.fontCustomName = file.name;
+        st.fontDisplay = 'custom';
+        NS.ui.applySettings();
+        touch(); render();
+        status('шрифт загружен: ' + file.name);
+      }).catch(function (err) {
+        status('шрифт не загружен');
+        alert('Не получилось: ' + err.message);
+      });
+    });
+
     $('#adminBody').onclick = function (e) {
       var del = e.target.closest('[data-paldel]');
       if (del) {
@@ -711,6 +747,14 @@ window.FHh = window.FHh || {};
       var b = e.target.closest('[data-act]');
       if (!b) return;
       if (b.dataset.act === 'replay') { persist(true); location.reload(); }
+      if (b.dataset.act === 'fontup') { $('#fontInp').click(); }
+      if (b.dataset.act === 'fontdel') {
+        S.dropImage(S.state.settings.fontCustom);
+        S.state.settings.fontCustom = '';
+        S.state.settings.fontCustomName = '';
+        if (S.state.settings.fontDisplay === 'custom') S.state.settings.fontDisplay = 'jura';
+        NS.ui.applySettings(); touch(); render();
+      }
       if (b.dataset.act === 'palsave') {
         var name = prompt('Название палитры:', 'Моя палитра');
         if (!name) return;
