@@ -127,9 +127,11 @@ body[data-phase="live"] .pre__hud{opacity:0;transform:translateY(26px)}
              background .35s,border-color .35s;
   border-bottom:1px solid transparent}
 body[data-phase="live"] .nav{opacity:1;transform:none;transition-delay:.15s}
-.nav.is-solid{background:color-mix(in srgb,var(--paper) 88%,transparent);
-  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
-  border-bottom-color:var(--line)}
+/* Никакого backdrop-filter у шапки: он делает .nav содержащим блоком для
+   position:fixed потомков, и раскрытое меню начинает мерить inset:0 от
+   полоски шапки. Safari держит этот слой даже после сброса свойства,
+   поэтому фон просто сплошной. */
+.nav.is-solid{background:var(--paper);border-bottom-color:var(--line)}
 .nav__brand{display:flex;align-items:center;gap:10px;min-width:0;
   font-family:var(--f-display);font-weight:700;font-size:calc(16px * var(--fs));
   letter-spacing:.01em}
@@ -286,6 +288,17 @@ body[data-phase="live"] .hero__foot{opacity:1}
 .head__title em{font-style:normal;color:var(--accent)}
 
 /* ---- переключатель групп товаров ---- */
+/* переключатель «лента / сетка» — только для телефона */
+.cardmode{display:none;align-items:center;gap:8px;
+  padding:9px 14px;min-height:42px;border:1px solid var(--line-2);
+  font-size:calc(11.5px * var(--fs));color:var(--ink-soft);
+  transition:color .3s,border-color .3s,background .3s}
+.cardmode svg{width:15px;height:15px;fill:currentColor}
+.cardmode svg rect{transition:x .3s var(--ease),width .3s var(--ease)}
+.cardmode[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+/* в режиме сетки иконка складывается в две широкие полосы — это «лента» */
+.cardmode[aria-pressed="true"] svg rect{x:3;width:18}
+
 .filters{display:flex;gap:6px;flex-wrap:wrap;font-size:calc(11.5px * var(--fs))}
 .filters button{padding:10px 16px;border:1px solid var(--line);color:var(--ink-soft);
   position:relative;overflow:hidden;min-height:42px;
@@ -311,6 +324,9 @@ body[data-phase="live"] .hero__foot{opacity:1}
 .grid:empty{border-bottom:0}
 .grid-empty{display:flex;align-items:center;gap:16px;
   padding:60px var(--gut) 120px;color:var(--ink-soft);font-size:calc(12px * var(--fs))}
+/* без этого display:flex перебивает атрибут hidden и подпись висит
+   под заполненной витриной */
+.grid-empty[hidden]{display:none}
 .grid-empty i{width:44px;flex:none;opacity:.5}
 .grid-empty i svg{width:100%;height:auto;display:block}
 
@@ -405,7 +421,7 @@ body[data-phase="live"] .hero__foot{opacity:1}
 /* Поле, по которому плавают снимки. Координаты считает ui.js: у каждого
    кадра своя скорость, борта отбивают, центральный кадр обходят, а от
    того, на который навели курсор, остальные разбегаются. */
-.drift{position:relative;width:100%;aspect-ratio:1/1.08;min-height:340px}
+.drift{position:relative;width:100%;min-width:0;aspect-ratio:1/1.08;min-height:340px}
 .drift__ph{position:absolute;left:0;top:0;width:120px;
   overflow:hidden;background:var(--paper-2);cursor:pointer;
   box-shadow:0 10px 32px -18px color-mix(in srgb,var(--ink) 60%,transparent);
@@ -422,12 +438,18 @@ body[data-phase="live"] .hero__foot{opacity:1}
   background:color-mix(in srgb,var(--ink) 68%,transparent);
   opacity:0;pointer-events:none;transition:opacity .35s}
 .drift__scrim.is-on{opacity:1;pointer-events:auto}
-.drift__ph.is-focus{position:fixed;left:50%;top:50%;z-index:71;
-  width:min(88vw,430px);max-height:82vh;
+.drift__ph.is-dim{opacity:.25}
+/* Раскрытый кадр показывается отдельным слоем прямо в <body>: внутри
+   секции он попадал в её контекст наложения — затемнение накрывало его
+   целиком, а position:fixed считался от анимированного предка. */
+.drift__zoom{position:fixed;left:50%;top:50%;z-index:71;
+  width:min(88vw,430px);max-width:430px;
   transform:translate(-50%,-50%);
+  background:var(--paper-2);overflow:hidden;
   box-shadow:0 30px 80px -24px color-mix(in srgb,var(--ink) 82%,transparent);
   animation:focusIn .34s var(--ease)}
-.drift__ph.is-focus img,.drift__ph.is-focus video{max-height:82vh;object-fit:contain}
+.drift__zoom img,.drift__zoom video{display:block;width:100%;height:auto;
+  max-height:76vh;max-height:76svh;object-fit:contain}
 @keyframes focusIn{
   from{opacity:.3;transform:translate(-50%,-50%) scale(.88)}
   to{opacity:1;transform:translate(-50%,-50%) scale(1)}
@@ -511,12 +533,15 @@ body[data-phase="live"] .hero__foot{opacity:1}
   min-height:40px;transition:color .3s,border-color .3s,background .3s}
 .gpanel__subs button:hover{color:var(--ink);border-color:var(--line-2)}
 .gpanel__subs button.is-on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.gpanel .cardmode{margin:22px 0 0}
+.gpanel__subs + .cardmode{margin-top:10px}
 .gpanel__empty{padding:40px var(--gut) 80px;color:var(--ink-soft);
   font-size:calc(12px * var(--fs))}
 body.is-gsheet{overflow:hidden}
 
 /* ============ КАРТОЧКА РАБОТЫ ============ */
-.sheet{position:fixed;inset:0;z-index:60;visibility:hidden}
+.sheet{position:fixed;inset:0;z-index:60;visibility:hidden;
+  height:100vh;height:100svh}
 .sheet.is-open{visibility:visible}
 .sheet__scrim{position:absolute;inset:0;background:color-mix(in srgb,var(--ink) 62%,transparent);
   opacity:0;transition:opacity .45s var(--ease)}
@@ -557,7 +582,8 @@ body.is-gsheet{overflow:hidden}
   filter:drop-shadow(0 0 3px color-mix(in srgb,var(--ink) 80%,transparent))}
 .sheet__thumbs button.is-on,.sheet__thumbs button:hover{opacity:1}
 .sheet__body{padding:clamp(24px,3.4vw,58px);overflow-y:auto;display:flex;flex-direction:column;
-  overscroll-behavior:contain}
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding-bottom:max(clamp(24px,3.4vw,58px),env(safe-area-inset-bottom))}
 .sheet__cat{font-size:calc(10.5px * var(--fs));color:var(--accent);margin:0 0 16px}
 .sheet__title{font-family:var(--f-display);font-weight:700;
   font-size:clamp(22px,2.3vw,34px);line-height:1.14;letter-spacing:-.015em;
@@ -779,8 +805,10 @@ body.is-gsheet{overflow:hidden}
 }
 @media (max-width:1024px){
   .sheet__panel{width:min(720px,100vw);grid-template-columns:1fr;
-    grid-template-rows:minmax(0,42vh) minmax(0,1fr)}
-  .about{grid-template-columns:1fr;gap:clamp(28px,5vw,48px)}
+    /* проценты от самой панели: на iOS 100vh выше видимой области,
+       и низ карточки вместе с кнопкой уезжал под панель браузера */
+    grid-template-rows:minmax(0,42%) minmax(0,1fr)}
+  .about{grid-template-columns:minmax(0,1fr);gap:clamp(28px,5vw,48px)}
   .drift{aspect-ratio:1/.8;min-height:0}
   .hero__lineart{width:min(58vw,460px);height:min(60vh,520px);right:-10%}
 }
@@ -794,12 +822,8 @@ body.is-gsheet{overflow:hidden}
     clip-path:circle(0% at calc(100% - 34px) 30px);
     transition:clip-path .7s var(--ease);z-index:-1}
   .nav.is-menu .nav__links{clip-path:circle(150% at calc(100% - 34px) 30px);z-index:1}
-  /* Пока меню раскрыто, у шапки не должно быть ни фона, ни матового стекла:
-     backdrop-filter делает .nav содержащим блоком для position:fixed, и меню
-     начинает мерить inset:0 от полоски шапки, а не от экрана — фон исчезает,
-     а пункты уезжают под неё. */
-  .nav.is-menu{background:transparent;border-bottom-color:transparent;
-    -webkit-backdrop-filter:none;backdrop-filter:none}
+  /* пока меню раскрыто, шапка отдаёт ему фон */
+  .nav.is-menu{background:transparent;border-bottom-color:transparent}
   .nav__links a span{color:var(--ink)}
   /* шапка остаётся поверх раскрытого меню: иначе крестик закрывался бы
      только выбором пункта, а логотип пропадал вместе с ним */
@@ -808,7 +832,8 @@ body.is-gsheet{overflow:hidden}
   .burger{display:inline-flex}
   .admin__win{inset:0}
   .admin__tabs{order:3;width:100%;margin-left:0}
-  .drift{aspect-ratio:1/1;min-height:0;height:min(76vh,540px)}
+  .drift{aspect-ratio:auto;min-height:0;width:100%;
+    height:min(72vh,520px);height:min(72svh,520px)}
   .gpanel__close{right:12px;top:10px;padding:10px 13px}
 }
 
@@ -816,6 +841,21 @@ body.is-gsheet{overflow:hidden}
   .grid{grid-template-columns:1fr}
   .card__media{aspect-ratio:3/4;max-height:74vh}
   .card__cap{padding:14px 16px 20px}
+  .cardmode{display:inline-flex}
+
+  /* компактный режим: вдвое больше работ на экране */
+  body[data-cards="grid"] .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body[data-cards="grid"] .card__media{aspect-ratio:1/1;max-height:none}
+  body[data-cards="grid"] .card__cap{padding:10px 11px 14px;
+    flex-direction:column;align-items:flex-start;gap:6px}
+  body[data-cards="grid"] .card__pricebox{align-items:flex-start;
+    flex-direction:row;flex-wrap:wrap;gap:6px}
+  body[data-cards="grid"] .card__name{font-size:calc(13px * var(--fs));line-height:1.2}
+  body[data-cards="grid"] .card__cat{font-size:calc(9.5px * var(--fs));margin-top:3px}
+  body[data-cards="grid"] .card__price{font-size:calc(11.5px * var(--fs))}
+  body[data-cards="grid"] .card__badge{font-size:calc(9px * var(--fs));padding:4px 8px}
+  body[data-cards="grid"] .st{font-size:calc(8.5px * var(--fs));padding:3px 6px}
+  body[data-cards="grid"] .card__play{width:24px;height:24px;right:7px;bottom:7px}
   .hero{min-height:92svh}
   .hero__foot{position:static;margin-top:26px;opacity:1;transition:none}
   .filters{width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
@@ -824,7 +864,7 @@ body.is-gsheet{overflow:hidden}
   .filters::-webkit-scrollbar{display:none}
   .filters button{flex:none;scroll-snap-align:start}
   .head{padding-bottom:16px}
-  .sheet__panel{grid-template-rows:minmax(0,38vh) minmax(0,1fr)}
+  .sheet__panel{grid-template-rows:minmax(0,38%) minmax(0,1fr)}
   .sheet__body{padding:22px 18px 32px}
   .sheet__price{font-size:calc(19px * var(--fs))}
   .foot{gap:10px}

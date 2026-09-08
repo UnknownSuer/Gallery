@@ -1,7 +1,7 @@
 {
   "v": 2,
-  "exported": "2026-09-08T03:12:04.129Z",
-  "publishedAt": "2026-09-08T03:12:04.129Z",
+  "exported": "2026-09-08T07:36:08.075Z",
+  "publishedAt": "2026-09-08T07:36:08.075Z",
   "site": {
     "schema": 2,
     "settings": {
@@ -32,6 +32,7 @@
       "roleBadge": "rust",
       "roleSeal": "emerald",
       "roleLogo": "olive",
+      "roleBotany": "emerald",
       "fontPreset": "rune",
       "fontScale": 1,
       "anim": 1,
@@ -294,7 +295,7 @@
         "images": []
       }
     ],
-    "savedAt": "2026-09-08T03:12:04.129Z"
+    "savedAt": "2026-09-08T07:36:08.075Z"
   },
   "media": {}
 }

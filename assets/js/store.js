@@ -33,7 +33,8 @@ window.FHh = window.FHh || {};
     { k: 'roleBand',   name: 'Цветной блок',   hint: 'фон блока-манифеста на главной' },
     { k: 'roleBadge',  name: 'Метка «под заказ»', hint: 'плашка на обложке работы' },
     { k: 'roleSeal',   name: 'Печать',         hint: 'штамп-гиппогриф, подчёркивания, служебные детали' },
-    { k: 'roleLogo',   name: 'Кольцо логотипа', hint: 'обод вокруг маскота в шапке и на вкладке браузера' }
+    { k: 'roleLogo',   name: 'Детали логотипа', hint: 'палки за головой маскота в шапке и на вкладке браузера' },
+    { k: 'roleBotany', name: 'Папоротники',    hint: 'вайи на заставке, в шапке героя и на подложках работ' }
   ];
 
   var BUILTIN_PALETTES = [
@@ -104,6 +105,7 @@ window.FHh = window.FHh || {};
       roleBadge: 'rust',
       roleSeal: 'emerald',
       roleLogo: 'olive',
+      roleBotany: 'emerald',
 
       /* оформление: типографика */
       fontPreset: 'rune',     // rune | clean

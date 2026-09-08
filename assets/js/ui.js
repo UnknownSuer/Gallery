@@ -18,6 +18,25 @@ window.FHh = window.FHh || {};
   var groupCat = 'all';         // подфильтр внутри группы
   var currentItem = null;
 
+  /* Режим витрины на телефоне: 'lane' — кадр во всю ширину, 'grid' — мелкая
+     сетка, чтобы за раз помещалось больше работ. Выбор запоминается в этом
+     браузере и действует и на главной, и на странице группы. */
+  var CARDS_KEY = 'fhh.cards';
+  function cardsMode() {
+    try { return localStorage.getItem(CARDS_KEY) === 'grid' ? 'grid' : 'lane'; }
+    catch (e) { return 'lane'; }
+  }
+  function applyCardsMode(m) {
+    body.dataset.cards = m;
+    try { localStorage.setItem(CARDS_KEY, m); } catch (e) {}
+    $$('[data-cardmode]').forEach(function (b) {
+      b.setAttribute('aria-pressed', m === 'grid' ? 'true' : 'false');
+      var lbl = $('span', b);
+      if (lbl) lbl.textContent = m === 'grid' ? 'лента' : 'сетка';
+    });
+  }
+  function toggleCards() { applyCardsMode(cardsMode() === 'grid' ? 'lane' : 'grid'); }
+
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
@@ -47,6 +66,8 @@ window.FHh = window.FHh || {};
     r.setProperty('--badge', 'var(--' + (st.roleBadge || 'rust') + ')');
     r.setProperty('--seal', 'var(--' + (st.roleSeal || 'emerald') + ')');
     r.setProperty('--logo-ring', 'var(--' + (st.roleLogo || 'olive') + ')');
+    // ботанике нужен разобранный цвет: canvas не понимает var()
+    r.setProperty('--botany', st[st.roleBotany] || st.emerald || st.olive);
     r.setProperty('--logo-body', 'var(--rust)');
     r.setProperty('--logo-ink', 'var(--ink)');
     r.setProperty('--anim', st.anim);
@@ -64,7 +85,7 @@ window.FHh = window.FHh || {};
       fav.setAttribute('href', BR.faviconURL({
         paper: st.paper,
         ink: st.ink,
-        ring: st[st.roleLogo] || st.olive,
+        stick: st[st.roleLogo] || st.olive,
         body: st.rust
       }));
     }
@@ -312,6 +333,13 @@ window.FHh = window.FHh || {};
           '<h2 class="gpanel__title">' + esc(g.name) + '<em>.</em></h2>' +
           (g.note ? '<p class="gpanel__note">' + esc(g.note) + '</p>' : '') +
           subHTML +
+          '<button class="cardmode mono" data-cardmode aria-pressed="false">' +
+            '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+              '<rect x="3" y="3" width="8" height="8"></rect>' +
+              '<rect x="13" y="3" width="8" height="8"></rect>' +
+              '<rect x="3" y="13" width="8" height="8"></rect>' +
+              '<rect x="13" y="13" width="8" height="8"></rect>' +
+            '</svg><span>сетка</span></button>' +
         '</header>' +
         '<div class="grid" data-ggrid></div>' +
         '<p class="gpanel__empty mono" data-gempty hidden>в этой группе пока пусто</p>' +
@@ -481,6 +509,7 @@ window.FHh = window.FHh || {};
 
     panel.addEventListener('click', function (e) {
       if (e.target.closest('[data-gclose]')) { closeGroup(); return; }
+      if (e.target.closest('[data-cardmode]')) { toggleCards(); return; }
       var sb = e.target.closest('[data-sub]');
       if (sb) {
         groupCat = sb.dataset.sub;
@@ -621,6 +650,7 @@ window.FHh = window.FHh || {};
   var driftHover = null;
   var driftFocus = null;
   var driftScrim = null;
+  var driftZoom = null;
 
   var REP_R = 260;    // радиус «испуга», px
   var REP_F = 2600;   // сила отталкивания
@@ -731,6 +761,7 @@ window.FHh = window.FHh || {};
     var oi = 0;
 
     driftTiles.forEach(function (t) {
+      if (t === driftFocus) return;
       var w = Math.round(W * t.kw);
       var el = t.el;
       el.style.width = w + 'px';
@@ -852,15 +883,16 @@ window.FHh = window.FHh || {};
     });
   }
 
-  /* ---- телефон: тап разворачивает кадр по центру экрана ---- */
+  /* ---- телефон: тап разворачивает кадр по центру экрана ----
+     Сам кадр остаётся в ленте и продолжает плыть, а поверх страницы
+     показывается его копия: внутри секции «о мастере» затемнение
+     перекрывало бы оригинал, а fixed считался бы от анимированного
+     предка и кадр уезжал вбок. */
   function openFocus(t) {
     closeFocus();
     driftFocus = t;
-    // отдаём размер и позицию стилям: иначе инлайновый transform
-    // из движка перебил бы центрирование
-    t.el.style.width = '';
-    t.el.style.transform = '';
-    t.el.classList.add('is-focus');
+    t.el.classList.add('is-dim');
+
     if (!driftScrim) {
       driftScrim = document.createElement('div');
       driftScrim.className = 'drift__scrim';
@@ -868,16 +900,33 @@ window.FHh = window.FHh || {};
       document.body.appendChild(driftScrim);
     }
     driftScrim.classList.add('is-on');
+
+    var src = $('img,video', t.el);
+    driftZoom = document.createElement('div');
+    driftZoom.className = 'drift__zoom';
+    var big;
+    if (src && src.tagName === 'VIDEO') {
+      big = document.createElement('video');
+      big.muted = true; big.loop = true; big.autoplay = true;
+      big.playsInline = true; big.setAttribute('playsinline', '');
+      big.controls = true;
+    } else {
+      big = document.createElement('img');
+      big.alt = '';
+    }
+    if (src) big.src = src.currentSrc || src.src;
+    driftZoom.appendChild(big);
+    driftZoom.addEventListener('click', closeFocus);
+    document.body.appendChild(driftZoom);
   }
 
   function closeFocus() {
     if (driftFocus) {
-      var t = driftFocus;
-      t.el.classList.remove('is-focus');
-      t.el.style.width = t.w + 'px';
-      place(t);
+      driftFocus.el.classList.remove('is-dim');
       driftFocus = null;
     }
+    if (driftZoom && driftZoom.parentNode) driftZoom.parentNode.removeChild(driftZoom);
+    driftZoom = null;
     if (driftScrim) driftScrim.classList.remove('is-on');
   }
 
@@ -916,6 +965,7 @@ window.FHh = window.FHh || {};
 
   /* ---------------- загрузка ---------------- */
   function boot() {
+    applyCardsMode(cardsMode());
     applySettings();
     renderFilters();
     renderGrid(false);
@@ -1017,6 +1067,11 @@ window.FHh = window.FHh || {};
       if (g) { openGroup(g); return; }
       var r = currentRoute();
       if (r) { closeGroup(true); route(r); }
+    });
+
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-cardmode]');
+      if (b && !b.closest('.gpanel')) toggleCards();
     });
 
     $('#burger').addEventListener('click', function () {

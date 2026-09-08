@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Jura:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- ?v=N — версия статики: поднимите число, если правили css/js,
      иначе у постоянных посетителей останется старая версия из кеша -->
-<link rel="stylesheet" href="assets/css/style.css?v=8">
+<link rel="stylesheet" href="assets/css/style.css?v=11">
 <!-- превью ссылки в Telegram / VK / мессенджерах -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="FHh">
@@ -112,6 +112,16 @@
   <section class="shelf" id="shelf">
     <div class="head">
       <h2 class="head__title">витрина<em>.</em></h2>
+      <!-- на телефоне: крупная лента или мелкая сетка -->
+      <button class="cardmode mono" data-cardmode aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect class="cardmode__a" x="3" y="3" width="8" height="8"></rect>
+          <rect class="cardmode__b" x="13" y="3" width="8" height="8"></rect>
+          <rect class="cardmode__c" x="3" y="13" width="8" height="8"></rect>
+          <rect class="cardmode__d" x="13" y="13" width="8" height="8"></rect>
+        </svg>
+        <span>сетка</span>
+      </button>
       <div class="filters mono" id="filters"></div>
     </div>
     <div class="grid" id="grid"></div>
@@ -214,11 +224,11 @@
 <div class="toast mono" id="toast"></div>
 <canvas id="wipe-canvas" class="wipe-canvas" aria-hidden="true"></canvas>
 
-<script src="assets/js/config.js?v=8"></script>
-<script src="assets/js/brand.js?v=8"></script>
-<script src="assets/js/store.js?v=8"></script>
-<script src="assets/js/botanica.js?v=8"></script>
-<script src="assets/js/ui.js?v=8"></script>
-<script src="assets/js/admin.js?v=8"></script>
+<script src="assets/js/config.js?v=11"></script>
+<script src="assets/js/brand.js?v=11"></script>
+<script src="assets/js/store.js?v=11"></script>
+<script src="assets/js/botanica.js?v=11"></script>
+<script src="assets/js/ui.js?v=11"></script>
+<script src="assets/js/admin.js?v=11"></script>
 </body>
 </html>
