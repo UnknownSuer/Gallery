@@ -52,6 +52,8 @@ window.FHh = window.FHh || {};
     r.setProperty('--anim', st.anim);
     r.setProperty('--fs', st.fontScale || 1);
 
+    var about = $('.about');
+    if (about) about.classList.toggle('is-left', st.aboutSide === 'left');
     body.dataset.font = st.fontPreset || 'rune';
     body.dataset.lineart = st.lineart ? '1' : '0';
     body.dataset.drift = st.aboutDrift ? '1' : '0';
@@ -103,7 +105,6 @@ window.FHh = window.FHh || {};
     ['#navMark', '#preMark', '#footMark'].forEach(function (sel) {
       var el = $(sel); if (el) el.innerHTML = mascot;
     });
-    var seal = $('#aboutSeal'); if (seal) seal.innerHTML = BR.sealSVG('currentColor');
   }
 
   function plural(n, a, b, c) {
@@ -307,7 +308,6 @@ window.FHh = window.FHh || {};
       '</button>' +
       '<div class="gpanel__inner">' +
         '<header class="gpanel__head">' +
-          '<span class="gpanel__seal" aria-hidden="true">' + (BR ? BR.sealSVG('currentColor') : '') + '</span>' +
           '<p class="gpanel__kicker mono">группа товаров</p>' +
           '<h2 class="gpanel__title">' + esc(g.name) + '<em>.</em></h2>' +
           (g.note ? '<p class="gpanel__note">' + esc(g.note) + '</p>' : '') +
@@ -609,49 +609,62 @@ window.FHh = window.FHh || {};
   }
 
   /* ============================================================
-     «О МАСТЕРЕ»: дрейфующие фотографии
-     Слоты заданы в процентах, поэтому раскладка не зависит от
-     ширины экрана; на телефоне лента превращается в обычную сетку.
+     «О МАСТЕРЕ»: живая лента фотографий
+     Снимки не анимируются ключевыми кадрами, а плавают: у каждого своя
+     скорость, они отталкиваются от бортов, обходят центральный кадр и
+     разбегаются от того снимка, на который навели курсор. На телефоне
+     тап разворачивает кадр по центру экрана, остальные плывут дальше.
      ============================================================ */
-  var SLOTS = [
-    [2, 1, 30], [37, 6, 24], [66, 0, 31],
-    [0, 27, 24], [30, 30, 29], [64, 33, 28],
-    [6, 50, 27], [37, 55, 26], [69, 57, 27],
-    [22, 17, 19], [52, 21, 18], [12, 41, 17]
-  ];
+  var driftRAF = 0;
+  var driftTiles = [];
+  var driftBox = null;
+  var driftHover = null;
+  var driftFocus = null;
+  var driftScrim = null;
 
-  /* Ленту собираем только когда раздел «о мастере» открыт: иначе браузер
-     тянет почти мегабайт фотографий ещё на главной. */
+  var REP_R = 260;    // радиус «испуга», px
+  var REP_F = 2600;   // сила отталкивания
+  var WANDER = 44;    // насколько сильно кадр сам меняет курс
+  var VMAX = 460;
+
   function driftActive() {
     var v = $('.view[data-view="about"]');
     return v && v.classList.contains('is-active');
+  }
+  function touchLayout() {
+    return window.matchMedia && window.matchMedia('(max-width: 820px)').matches;
+  }
+
+  function stopDrift() {
+    if (driftRAF) cancelAnimationFrame(driftRAF);
+    driftRAF = 0;
+    driftTiles = [];
+    driftHover = null;
+    closeFocus();
   }
 
   function renderDrift(force) {
     var box = $('#drift');
     if (!box) return;
+    stopDrift();
     if (!force && !driftActive()) { box.innerHTML = ''; return; }
-    var refs = (S.state.settings.aboutPhotos || []).filter(Boolean);
+
+    var st = S.state.settings;
+    var refs = (st.aboutPhotos || []).filter(Boolean);
     box.innerHTML = '';
+    driftBox = box;
     if (!refs.length) return;
 
+    // центральный кадр: настройка панели, иначе просто один из первых
+    var centerRef = refs.indexOf(st.aboutCenter) >= 0 ? st.aboutCenter : refs[Math.min(3, refs.length - 1)];
+
     refs.forEach(function (ref, i) {
-      var s = SLOTS[i % SLOTS.length];
-      var d = document.createElement('figure');
-      d.className = 'drift__ph';
-      // «случайность» детерминированная: раскладка не прыгает при перерисовке
-      var k = (i * 37) % 11;
-      d.style.cssText =
-        '--x:' + s[0] + '%;--y:' + s[1] + '%;--w:' + s[2] + '%;' +
-        '--r:' + ((k % 5) - 2) * 0.7 + 'deg;' +
-        '--dx:' + (((k % 4) - 1.5) * 9).toFixed(1) + 'px;' +
-        '--dy:' + (((k % 3) - 1) * 13).toFixed(1) + 'px;' +
-        '--dur:' + (15 + (k % 7) * 2.2).toFixed(1) + 's;' +
-        '--delay:-' + (k * 1.7).toFixed(1) + 's;' +
-        // слой держим переменной, а не z-index: инлайновый z-index пересилил бы
-        // правило :hover, и подсвеченное фото осталось бы под соседями
-        '--z:' + (1 + (i % 3)) + ';margin:0';
+      var isCenter = ref === centerRef;
       var isVideo = S.mediaKind(ref) === 'video';
+      var d = document.createElement('figure');
+      d.className = 'drift__ph' + (isCenter ? ' is-center' : '');
+      d.style.margin = '0';
+
       var img = document.createElement(isVideo ? 'video' : 'img');
       if (isVideo) {
         img.muted = true; img.loop = true; img.playsInline = true; img.autoplay = true;
@@ -665,10 +678,212 @@ window.FHh = window.FHh || {};
       d.appendChild(img);
       box.appendChild(d);
       S.resolveMedia(ref).then(function (u) {
-        if (u) img.src = u; else d.remove();
+        if (u) img.src = u + (isVideo ? '#t=0.1' : '');
+        else d.remove();
+      });
+
+      // «случайность» детерминированная: раскладка не прыгает при перерисовке
+      var k = (i * 37) % 11;
+      var t = {
+        el: d, ref: ref, center: isCenter, i: i,
+        rot: ((k % 5) - 2) * 0.8,
+        ang: (i * 2.399) % 6.283,
+        spin: 0.22 + (k % 5) * 0.06,
+        kw: isCenter ? 0.30 : (0.15 + (k % 5) * 0.022),
+        orbit: ((k % 5) - 2) * 20,                  // своё кольцо у каждого
+        spinDir: (58 + (k % 4) * 16) * (i % 2 ? 1 : -1),
+        x: 0, y: 0, vx: 0, vy: 0, w: 0, h: 0
+      };
+      driftTiles.push(t);
+
+      d.addEventListener('pointerenter', function () {
+        if (touchLayout() || driftFocus) return;
+        driftHover = t;
+        d.classList.add('is-near');
+      });
+      d.addEventListener('pointerleave', function () {
+        if (driftHover === t) driftHover = null;
+        d.classList.remove('is-near');
+      });
+      d.addEventListener('click', function () {
+        if (!touchLayout()) return;
+        if (driftFocus === t) closeFocus(); else openFocus(t);
       });
     });
+
+    layoutDrift();
+    // размеры кадров зависят от того, какая картинка загрузилась
+    setTimeout(layoutDrift, 400);
+    setTimeout(layoutDrift, 1400);
+
+    if (S.state.settings.aboutDrift && !B.reducedMotion) startDrift();
+    else driftTiles.forEach(place);
   }
+
+  /* Стартовая раскладка: центральный кадр в середине, остальные — кольцом */
+  function layoutDrift() {
+    if (!driftBox || !driftTiles.length) return;
+    var W = driftBox.clientWidth, H = driftBox.clientHeight;
+    if (!W || !H) return;
+    var cx = W / 2, cy = H / 2;
+    var others = driftTiles.filter(function (t) { return !t.center; });
+    var n = Math.max(1, others.length);
+    var oi = 0;
+
+    driftTiles.forEach(function (t) {
+      var w = Math.round(W * t.kw);
+      var el = t.el;
+      el.style.width = w + 'px';
+      t.w = w;
+      t.h = el.offsetHeight || Math.round(w * 1.25);
+
+      if (t.center) {
+        t.x = cx - t.w / 2;
+        t.y = cy - t.h / 2;
+        t.vx = t.vy = 0;
+      } else if (t.placed !== true) {
+        var a = (oi / n) * Math.PI * 2 + 0.6;
+        var rx = W * 0.34, ry = H * 0.34;
+        t.x = cx + Math.cos(a) * rx - t.w / 2 + ((t.i % 3) - 1) * 12;
+        t.y = cy + Math.sin(a) * ry - t.h / 2 + ((t.i % 4) - 1.5) * 12;
+        t.vx = Math.cos(a + 1.6) * 22;
+        t.vy = Math.sin(a + 1.6) * 22;
+        t.placed = true;
+        oi++;
+      } else {
+        oi++;
+      }
+      clampTile(t, W, H);
+      place(t);
+    });
+  }
+
+  function clampTile(t, W, H) {
+    t.x = Math.max(0, Math.min(W - t.w, t.x));
+    t.y = Math.max(0, Math.min(H - t.h, t.y));
+  }
+
+  function place(t) {
+    t.el.style.transform = 'translate3d(' + t.x.toFixed(1) + 'px,' + t.y.toFixed(1) + 'px,0) rotate(' + t.rot + 'deg)';
+  }
+
+  function startDrift() {
+    var last = performance.now();
+    function frame(now) {
+      var dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      stepDrift(dt, now);
+      driftRAF = requestAnimationFrame(frame);
+    }
+    driftRAF = requestAnimationFrame(frame);
+  }
+
+  function stepDrift(dt, now) {
+    if (!driftBox) return;
+    var W = driftBox.clientWidth, H = driftBox.clientHeight;
+    if (!W || !H) return;
+
+    var center = null, srcX = null, srcY = null;
+    driftTiles.forEach(function (t) { if (t.center) center = t; });
+    var from = driftFocus || driftHover;
+    if (from) { srcX = from.x + from.w / 2; srcY = from.y + from.h / 2; }
+
+    var damp = Math.exp(-1.7 * dt);
+
+    driftTiles.forEach(function (t) {
+      if (t.center) { t.x = W / 2 - t.w / 2; t.y = H / 2 - t.h / 2; place(t); return; }
+      if (t === driftFocus) return;                     // раскрытый кадр стоит
+      if (t === driftHover) { t.vx *= 0.82; t.vy *= 0.82; place(t); return; }
+
+      // собственный курс, медленно поворачивающийся
+      t.ang += t.spin * dt;
+      t.vx += Math.cos(t.ang) * WANDER * dt;
+      t.vy += Math.sin(t.ang) * WANDER * dt;
+
+      var tx = t.x + t.w / 2, ty = t.y + t.h / 2, dx, dy, d, f;
+
+      // разбегаемся от кадра под курсором
+      if (srcX !== null) {
+        dx = tx - srcX; dy = ty - srcY;
+        d = Math.sqrt(dx * dx + dy * dy) || 1;
+        if (d < REP_R) {
+          f = (1 - d / REP_R) * REP_F;
+          t.vx += (dx / d) * f * dt;
+          t.vy += (dy / d) * f * dt;
+        }
+      }
+
+      // кружим вокруг центрального кадра: пружина тянет к своему кольцу,
+      // касательная толкает по орбите. Без этого все снимки расходились
+      // к бортам и там залипали.
+      if (center) {
+        var ccx = center.x + center.w / 2, ccy = center.y + center.h / 2;
+        dx = tx - ccx; dy = ty - ccy;
+        d = Math.sqrt(dx * dx + dy * dy) || 1;
+        var ring = Math.min(W, H) * 0.33 + t.orbit;
+        t.vx += (dx / d) * (ring - d) * 2.4 * dt;
+        t.vy += (dy / d) * (ring - d) * 2.4 * dt;
+        t.vx += (-dy / d) * t.spinDir * dt;
+        t.vy += (dx / d) * t.spinDir * dt;
+
+        // и всё же не наезжаем на него вплотную
+        var keep = Math.max(center.w, center.h) * 0.55 + Math.min(t.w, t.h) * 0.36;
+        if (d < keep) {
+          f = (1 - d / keep) * 900;
+          t.vx += (dx / d) * f * dt;
+          t.vy += (dy / d) * f * dt;
+        }
+      }
+
+      t.vx *= damp; t.vy *= damp;
+      var sp = Math.sqrt(t.vx * t.vx + t.vy * t.vy);
+      if (sp > VMAX) { t.vx = t.vx / sp * VMAX; t.vy = t.vy / sp * VMAX; }
+
+      t.x += t.vx * dt;
+      t.y += t.vy * dt;
+
+      // борта: мягкий отскок
+      if (t.x < 0) { t.x = 0; t.vx = Math.abs(t.vx) * 0.7; }
+      if (t.y < 0) { t.y = 0; t.vy = Math.abs(t.vy) * 0.7; }
+      if (t.x > W - t.w) { t.x = W - t.w; t.vx = -Math.abs(t.vx) * 0.7; }
+      if (t.y > H - t.h) { t.y = H - t.h; t.vy = -Math.abs(t.vy) * 0.7; }
+
+      place(t);
+    });
+  }
+
+  /* ---- телефон: тап разворачивает кадр по центру экрана ---- */
+  function openFocus(t) {
+    closeFocus();
+    driftFocus = t;
+    // отдаём размер и позицию стилям: иначе инлайновый transform
+    // из движка перебил бы центрирование
+    t.el.style.width = '';
+    t.el.style.transform = '';
+    t.el.classList.add('is-focus');
+    if (!driftScrim) {
+      driftScrim = document.createElement('div');
+      driftScrim.className = 'drift__scrim';
+      driftScrim.addEventListener('click', closeFocus);
+      document.body.appendChild(driftScrim);
+    }
+    driftScrim.classList.add('is-on');
+  }
+
+  function closeFocus() {
+    if (driftFocus) {
+      var t = driftFocus;
+      t.el.classList.remove('is-focus');
+      t.el.style.width = t.w + 'px';
+      place(t);
+      driftFocus = null;
+    }
+    if (driftScrim) driftScrim.classList.remove('is-on');
+  }
+
+  window.addEventListener('resize', function () {
+    if (driftTiles.length) layoutDrift();
+  });
 
   /* ---------------- разделы ---------------- */
   function currentRoute() {
@@ -782,6 +997,7 @@ window.FHh = window.FHh || {};
     // Escape закрывает по одному слою: сначала карточка, потом группа
     window.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
+      if (driftFocus) { closeFocus(); return; }
       if ($('#product').classList.contains('is-open')) { closeProduct(); return; }
       if (currentGroup) closeGroup();
     });

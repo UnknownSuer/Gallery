@@ -775,11 +775,14 @@ window.FHh = window.FHh || {};
     var list = (st.aboutPhotos || []);
     var cells = list.map(function (ref, i) {
       var video = S.mediaKind(ref) === 'video';
-      return '<figure class="photo' + (video ? ' is-video' : '') + '" data-p="' + i + '" style="margin:0">' +
+      var isCenter = ref === st.aboutCenter;
+      return '<figure class="photo' + (video ? ' is-video' : '') + (isCenter ? ' is-center' : '') +
+        '" data-p="' + i + '" style="margin:0">' +
         (video ? '<video muted playsinline preload="metadata" data-pimg="' + i + '"></video>'
                : '<img alt="" data-pimg="' + i + '">') +
         '<div class="photo__btns">' +
           '<button data-act="pleft" title="Левее">←</button>' +
+          '<button data-act="pcenter" title="' + (isCenter ? 'Сейчас в центре' : 'Поставить в центр') + '">★</button>' +
           '<button data-act="pright" title="Правее">→</button>' +
           '<button data-act="pdel" title="Убрать">×</button>' +
         '</div></figure>';
@@ -787,17 +790,25 @@ window.FHh = window.FHh || {};
 
     return '<div class="editor">' +
       '<h4>Фотографии на странице «о мастере»</h4>' +
-      '<p class="hint">Эти снимки медленно дрейфуют справа от текста. При наведении соседние ' +
-      'расплываются, а выбранный останавливается и подрастает. На телефоне лента превращается ' +
-      'в обычную сетку — дрейф там всё равно не нужен.</p>' +
+      '<p class="hint">Снимки сами плавают по полю рядом с текстом: у каждого своя скорость, ' +
+      'а от того, на который навели курсор, соседи разбегаются. Кадр, отмеченный ★, стоит в центре ' +
+      'и показывается крупнее — остальные кружат вокруг него. На телефоне тап по снимку ' +
+      'разворачивает его посреди экрана, фон продолжает плыть.</p>' +
       '<div class="toolbar">' +
         '<button class="btn btn--solid" data-act="padd">+ Добавить фотографии</button>' +
         '<input type="file" id="photoInp" accept="image/*,video/*" multiple hidden>' +
         '<button class="btn btn--ghost" data-act="preset">Вернуть исходную подборку</button>' +
       '</div>' +
+      '<div class="cols">' +
       field('Дрейф',
         '<select data-s="aboutDrift"><option value="1"' + (st.aboutDrift ? ' selected' : '') + '>включён</option>' +
         '<option value="0"' + (!st.aboutDrift ? ' selected' : '') + '>выключен (фото просто стоят)</option></select>') +
+      field('Сторона ленты (на широком экране)',
+        '<select data-s="aboutSide">' +
+        '<option value="right"' + (st.aboutSide !== 'left' ? ' selected' : '') + '>справа от текста</option>' +
+        '<option value="left"' + (st.aboutSide === 'left' ? ' selected' : '') + '>слева от текста</option></select>',
+        'На телефоне лента всегда под текстом.') +
+      '</div>' +
       (cells ? '<div class="photos">' + cells + '</div>'
              : '<p class="hint">Фотографий нет — блок на странице «о мастере» не показывается.</p>') +
       '</div>';
@@ -814,7 +825,11 @@ window.FHh = window.FHh || {};
       var t = e.target;
       if (t.dataset.s === 'aboutDrift') {
         st.aboutDrift = Number(t.value);
-        NS.ui.applySettings(); touch();
+        NS.ui.refresh(); touch();
+      }
+      if (t.dataset.s === 'aboutSide') {
+        st.aboutSide = t.value;
+        NS.ui.refresh(); touch();
       }
     };
     $('#adminBody').onchange = $('#adminBody').oninput;
@@ -844,9 +859,11 @@ window.FHh = window.FHh || {};
         touch(); NS.ui.refresh(); render(); return;
       }
       if (i < 0) return;
+      if (act === 'pcenter') { st.aboutCenter = st.aboutPhotos[i]; }
       if (act === 'pleft' && i > 0) { st.aboutPhotos.splice(i - 1, 0, st.aboutPhotos.splice(i, 1)[0]); }
       if (act === 'pright' && i < st.aboutPhotos.length - 1) { st.aboutPhotos.splice(i + 1, 0, st.aboutPhotos.splice(i, 1)[0]); }
       if (act === 'pdel') {
+        if (st.aboutPhotos[i] === st.aboutCenter) st.aboutCenter = '';
         S.dropImage(st.aboutPhotos[i]);
         st.aboutPhotos.splice(i, 1);
       }

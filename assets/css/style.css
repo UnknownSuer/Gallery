@@ -77,13 +77,12 @@ a{color:inherit;text-decoration:none}
 .mono{font-family:var(--f-mono);font-weight:500;letter-spacing:var(--mono-track)}
 
 /* фирменные фигуры как декор: красятся текущим цветом через маску */
-.mark-lineart,.mark-seal{
+.mark-lineart{
   -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
   -webkit-mask-position:center;mask-position:center;
   -webkit-mask-size:contain;mask-size:contain;
   background:currentColor;display:block}
 .mark-lineart{-webkit-mask-image:url(../img/lineart.svg);mask-image:url(../img/lineart.svg)}
-.mark-seal{-webkit-mask-image:url(../img/seal.svg);mask-image:url(../img/seal.svg)}
 
 /* ============ ПРЕЛОАДЕР ============
    Один непрерывный ход: вайи раскрываются → раздвигаются с наездом камеры →
@@ -395,35 +394,44 @@ body[data-phase="live"] .hero__foot{opacity:1}
 .prose ul{padding-left:1.1em;margin:0 0 1.15em}
 
 /* ---- «о мастере»: текст слева, дрейфующие фотографии справа ---- */
-.about{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);
+.about{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);
   gap:clamp(24px,4vw,64px);align-items:start;padding:0 var(--gut)}
-.about__col{position:relative}
-.about__seal{display:block;width:clamp(56px,7vw,86px);margin:36px 0 0;color:var(--seal);
-  opacity:.85}
-.about__seal svg{width:100%;height:auto;display:block}
+.about__col{position:relative;z-index:1}
+/* лента может плавать и слева от текста — переключается в панели */
+.about.is-left{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+.about.is-left .about__col{order:2}
+.about.is-left .drift{order:1}
 
-.drift{position:relative;width:100%;aspect-ratio:1/1.06;min-height:320px;
-  perspective:800px}
-.drift__ph{position:absolute;left:var(--x);top:var(--y);width:var(--w);z-index:var(--z,1);
-  overflow:hidden;background:var(--paper-2);
+/* Поле, по которому плавают снимки. Координаты считает ui.js: у каждого
+   кадра своя скорость, борта отбивают, центральный кадр обходят, а от
+   того, на который навели курсор, остальные разбегаются. */
+.drift{position:relative;width:100%;aspect-ratio:1/1.08;min-height:340px}
+.drift__ph{position:absolute;left:0;top:0;width:120px;
+  overflow:hidden;background:var(--paper-2);cursor:pointer;
   box-shadow:0 10px 32px -18px color-mix(in srgb,var(--ink) 60%,transparent);
-  animation:drift var(--dur) var(--delay) ease-in-out infinite alternate;
-  transition:filter .55s var(--ease),opacity .55s var(--ease),box-shadow .55s;
-  will-change:transform}
-.drift__ph img{width:100%;height:auto;display:block;
-  transition:transform .7s var(--ease)}
-@keyframes drift{
-  from{transform:translate3d(0,0,0) rotate(var(--r))}
-  to{transform:translate3d(var(--dx),var(--dy),0) rotate(calc(var(--r) * -1))}
+  transition:box-shadow .4s var(--ease);
+  will-change:transform;backface-visibility:hidden}
+.drift__ph img,.drift__ph video{width:100%;height:auto;display:block}
+.drift__ph.is-center{z-index:2;
+  box-shadow:0 22px 60px -24px color-mix(in srgb,var(--ink) 68%,transparent)}
+.drift__ph.is-near{z-index:5;
+  box-shadow:0 26px 56px -22px color-mix(in srgb,var(--ink) 72%,transparent)}
+
+/* телефон: тап разворачивает кадр по центру экрана, остальные плывут дальше */
+.drift__scrim{position:fixed;inset:0;z-index:70;
+  background:color-mix(in srgb,var(--ink) 68%,transparent);
+  opacity:0;pointer-events:none;transition:opacity .35s}
+.drift__scrim.is-on{opacity:1;pointer-events:auto}
+.drift__ph.is-focus{position:fixed;left:50%;top:50%;z-index:71;
+  width:min(88vw,430px);max-height:82vh;
+  transform:translate(-50%,-50%);
+  box-shadow:0 30px 80px -24px color-mix(in srgb,var(--ink) 82%,transparent);
+  animation:focusIn .34s var(--ease)}
+.drift__ph.is-focus img,.drift__ph.is-focus video{max-height:82vh;object-fit:contain}
+@keyframes focusIn{
+  from{opacity:.3;transform:translate(-50%,-50%) scale(.88)}
+  to{opacity:1;transform:translate(-50%,-50%) scale(1)}
 }
-/* при наведении на ленту все фото расплываются… */
-.drift:hover .drift__ph{filter:blur(4px) saturate(.72);opacity:.42}
-/* …кроме того, на которое навели: оно замирает и подрастает на 10% */
-.drift .drift__ph:hover{filter:none;opacity:1;z-index:6;
-  animation-play-state:paused;
-  box-shadow:0 22px 50px -20px color-mix(in srgb,var(--ink) 70%,transparent)}
-.drift .drift__ph:hover img{transform:scale(1.1)}
-body[data-drift="0"] .drift__ph{animation:none}
 
 /* ============ ПОДВАЛ ============ */
 .foot{display:flex;align-items:center;gap:12px;
@@ -490,9 +498,6 @@ body[data-drift="0"] .drift__ph{animation:none}
 .gpanel__inner{flex:1;overflow-y:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch}
 .gpanel__head{position:relative;padding:clamp(34px,5vw,60px) var(--gut) clamp(18px,2.6vw,30px)}
-.gpanel__seal{position:absolute;right:var(--gut);bottom:12px;width:clamp(58px,8vw,104px);
-  color:var(--seal);opacity:.16;pointer-events:none}
-.gpanel__seal svg{width:100%;height:auto;display:block}
 .gpanel__kicker{font-size:calc(10.5px * var(--fs));color:var(--accent);margin:0 0 10px;
   text-transform:lowercase}
 .gpanel__title{font-family:var(--f-display);font-weight:700;margin:0;
@@ -758,6 +763,8 @@ body.is-gsheet{overflow:hidden}
 .photo__btns button{flex:1;color:var(--paper);font-family:var(--f-mono);
   font-size:calc(10px * var(--fs));padding:6px 0;min-height:32px}
 .photo__btns button:hover{background:var(--accent)}
+.photo.is-center{outline:2px solid var(--accent);outline-offset:-2px}
+.photo.is-center [data-act="pcenter"]{background:var(--accent)}
 
 /* ============ АДАПТИВ ============
    Три ступени: телефон (<=640), планшет (641–1024), десктоп.        */
@@ -801,14 +808,8 @@ body.is-gsheet{overflow:hidden}
   .burger{display:inline-flex}
   .admin__win{inset:0}
   .admin__tabs{order:3;width:100%;margin-left:0}
-  .drift{position:static;aspect-ratio:auto;min-height:0;
-    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-  .drift__ph{position:static;width:auto!important;aspect-ratio:4/5;
-    animation:none!important;transform:none!important;transition:none}
-  .drift__ph img{height:100%;object-fit:cover}
-  .drift:hover .drift__ph{filter:none;opacity:1}
+  .drift{aspect-ratio:1/1;min-height:0;height:min(76vh,540px)}
   .gpanel__close{right:12px;top:10px;padding:10px 13px}
-  .gpanel__seal{opacity:.1;width:64px;bottom:6px}
 }
 
 @media (max-width:640px){
@@ -899,7 +900,6 @@ body.is-gsheet{overflow:hidden}
 /* --- указатель без наведения: не прячем подписи под hover --- */
 @media (hover:none){
   .card__over{display:none}
-  .drift:hover .drift__ph{filter:none;opacity:1}
 }
 
 @media (prefers-reduced-motion:reduce){
@@ -907,5 +907,4 @@ body.is-gsheet{overflow:hidden}
   *{animation-duration:.01ms!important;transition-duration:.01ms!important;
     animation-iteration-count:1!important}
   .hero__botany{display:none}
-  .drift__ph{animation:none!important}
 }

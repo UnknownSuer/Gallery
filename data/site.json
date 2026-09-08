@@ -1,7 +1,7 @@
 {
   "v": 2,
-  "exported": "2026-09-07T23:34:22.122Z",
-  "publishedAt": "2026-09-07T23:34:22.122Z",
+  "exported": "2026-09-08T03:12:04.129Z",
+  "publishedAt": "2026-09-08T03:12:04.129Z",
   "site": {
     "schema": 2,
     "settings": {
@@ -51,7 +51,9 @@
         "assets/img/master/m10.webp",
         "assets/img/master/m11.webp"
       ],
-      "aboutDrift": 1
+      "aboutDrift": 1,
+      "aboutCenter": "assets/img/master/m04.webp",
+      "aboutSide": "right"
     },
     "palettes": [],
     "groups": [
@@ -292,7 +294,7 @@
         "images": []
       }
     ],
-    "savedAt": "2026-09-07T23:34:22.122Z"
+    "savedAt": "2026-09-08T03:12:04.129Z"
   },
   "media": {}
 }

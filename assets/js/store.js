@@ -118,6 +118,8 @@ window.FHh = window.FHh || {};
       /* «о мастере» */
       aboutPhotos: MASTER_PHOTOS.slice(),
       aboutDrift: 1,
+      aboutCenter: MASTER_PHOTOS[3],   // кадр покрупнее в центре ленты
+      aboutSide: 'right',              // с какой стороны от текста плавает лента
 
       adminPass: 'fern',
       adminPassHash: ''
