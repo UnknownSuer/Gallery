@@ -1,7 +1,7 @@
 {
   "v": 2,
-  "exported": "2026-09-08T20:34:38.753Z",
-  "publishedAt": "2026-09-08T20:34:38.753Z",
+  "exported": "2026-09-09T09:01:00.117Z",
+  "publishedAt": "2026-09-09T09:01:00.117Z",
   "site": {
     "settings": {
       "siteTitle": "FHh",
@@ -105,7 +105,8 @@
           ]
         ],
         "images": [
-          "assets/media/xmtt3gfoxvm1cf.webp"
+          "assets/media/xmtt3gfoxvm1cf.webp",
+          "assets/media/xmttuzqphmba3g.png"
         ]
       },
       {
@@ -181,27 +182,36 @@
       },
       {
         "id": "i5",
-        "title": "Вороной",
+        "title": "Карликовый гиппогриф",
         "cat": "hh",
-        "price": 15900,
-        "old": null,
+        "price": 20000,
+        "old": 23000,
         "status": "available",
-        "desc": "<p>Хоббихорс размера M. Плотный флис, скульптурная лепка морды, грива и хвост из канекалона.</p>",
+        "desc": "<p>Дружелюбный серый гиппогрифф с невероятно красивыми глазками и милыми большими ушами, отличающимися от стандартной выкройки✨\n• подвижные ушки\n• клювик на магните \n• глазки с эффектом слежения\n• съёмная палочка </p>",
         "specs": [
           [
             "Размер",
-            "M · 105 см"
+            "Пони "
           ],
           [
             "Материал",
-            "флис, дерево"
+            "Искусственный мех премиум класса, поролон, стекло, искусственная кожа, металл, дерево бук, акриловые краски, неодимовые магниты, клей"
           ],
           [
             "Вес",
-            "1,1 кг"
+            "350 грамм"
           ]
         ],
-        "images": []
+        "images": [
+          "assets/media/xmttv3ysz4ui64.png",
+          "assets/media/xmttv3zreqebjv.png",
+          "assets/media/xmttv3z4vphahj.png",
+          "assets/media/xmttv40e8ebdzw.png",
+          "assets/media/xmttv3zfz0siuc.png",
+          "assets/media/xmttv3yh72lt9j.png",
+          "assets/media/xmttv3ygs4cazm.png",
+          "assets/media/xmttv403vzk2aq.png"
+        ]
       },
       {
         "id": "i6",
@@ -276,7 +286,7 @@
         "images": []
       }
     ],
-    "savedAt": "2026-09-08T20:34:38.753Z",
+    "savedAt": "2026-09-09T09:01:00.117Z",
     "groups": [
       {
         "id": "hobbyhorsing",
