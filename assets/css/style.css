@@ -433,6 +433,9 @@ body[data-phase="live"] .hero__foot{opacity:1}
 .svc__media img,.svc__media video{width:100%;height:100%;object-fit:cover;
   display:block;cursor:zoom-in;transition:transform 1s var(--ease)}
 .svc__media:hover img{transform:scale(1.03)}
+/* услуга без фотографии: заставка вместо пустого места, без курсора-лупы */
+.svc__media.is-empty img{cursor:default}
+.svc__media.is-empty:hover img{transform:none}
 .svc__thumbs{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
 .svc__thumbs:empty{display:none}
 .svc__thumbs button{width:58px;aspect-ratio:1;overflow:hidden;opacity:.45;

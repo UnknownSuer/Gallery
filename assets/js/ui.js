@@ -740,7 +740,8 @@ window.FHh = window.FHh || {};
 
       el.innerHTML =
         '<div>' +
-          (refs.length ? '<div class="svc__media"></div><div class="svc__thumbs"></div>' : '') +
+          '<div class="svc__media' + (refs.length ? '' : ' is-empty') + '"></div>' +
+          '<div class="svc__thumbs"></div>' +
         '</div>' +
         '<div class="svc__body">' +
           (sv.kind ? '<p class="svc__kicker">' + esc(sv.kind) + '</p>' : '') +
@@ -800,6 +801,13 @@ window.FHh = window.FHh || {};
           });
         }
         show(0);
+      } else {
+        // без фотографии колонка слева пустовала — кладём ту же
+        // сгенерированную ботанику, что и у работ без снимков
+        var ph = document.createElement('img');
+        ph.alt = '';
+        ph.src = B.placeholder(sv.id + sv.title, 900, 675);
+        $('.svc__media', el).appendChild(ph);
       }
 
       var cta = $('[data-book]', el);
