@@ -497,22 +497,18 @@ body[data-phase="live"] .hero__foot{opacity:1}
   height:min(78vh,720px);height:min(78svh,720px);min-height:320px;
   touch-action:manipulation}
 .drift__ph{position:absolute;left:0;top:0;width:120px;
-  overflow:hidden;background:var(--paper-2);cursor:grab;
+  overflow:hidden;background:var(--paper-2);cursor:pointer;
   user-select:none;-webkit-user-select:none;
   box-shadow:0 10px 32px -18px color-mix(in srgb,var(--ink) 60%,transparent);
   transition:box-shadow .4s var(--ease);
   will-change:transform;backface-visibility:hidden}
-/* картинка не должна перехватывать жест: иначе браузер начинает
-   собственное перетаскивание и кадр не сдвинуть */
+/* браузер не должен утаскивать саму картинку по клику */
 .drift__ph img,.drift__ph video{width:100%;height:auto;display:block;
   -webkit-user-drag:none;pointer-events:none}
 .drift__ph.is-center{z-index:2;
   box-shadow:0 22px 60px -24px color-mix(in srgb,var(--ink) 68%,transparent)}
 .drift__ph.is-near{z-index:5;
   box-shadow:0 26px 56px -22px color-mix(in srgb,var(--ink) 72%,transparent)}
-/* кадр в руке: приподнимаем, чтобы было видно, что он слушается */
-.drift__ph.is-held{z-index:7;cursor:grabbing;
-  box-shadow:0 30px 64px -20px color-mix(in srgb,var(--ink) 78%,transparent)}
 
 /* телефон: тап разворачивает кадр по центру экрана, остальные плывут дальше */
 .drift__scrim{position:fixed;inset:0;z-index:70;

@@ -922,51 +922,8 @@ window.FHh = window.FHh || {};
         if (driftHover === t) driftHover = null;
         d.classList.remove('is-near');
       });
-      /* Перетаскивание: застрявший под соседом кадр можно вытащить.
-         Куда положили — там и останется до перезагрузки или ухода в
-         другой раздел. Мышь тянет сразу, палец — после удержания,
-         иначе жест отобрал бы у страницы прокрутку. */
-      var dragging = false, moved = false, holdT = 0, armed = false;
-      var gx = 0, gy = 0, ox = 0, oy = 0;
-
-      d.addEventListener('pointerdown', function (e) {
-        if (driftFocus || e.button) return;
-        gx = e.clientX; gy = e.clientY; ox = t.x; oy = t.y;
-        moved = false; dragging = false;
-        armed = e.pointerType !== 'touch';
-        if (!armed) {
-          clearTimeout(holdT);
-          holdT = setTimeout(function () { armed = true; }, 240);
-        }
-        try { d.setPointerCapture(e.pointerId); } catch (err) {}
-      });
-
-      d.addEventListener('pointermove', function (e) {
-        if (!armed) return;
-        var dx = e.clientX - gx, dy = e.clientY - gy;
-        if (!dragging && Math.hypot(dx, dy) < 6) return;
-        dragging = true; moved = true;
-        t.pinned = true;
-        t.vx = t.vy = 0;
-        t.x = ox + dx; t.y = oy + dy;
-        clampTile(t, driftBox.clientWidth, driftBox.clientHeight);
-        place(t);
-        d.classList.add('is-held');
-        e.preventDefault();
-      });
-
-      function drop(e) {
-        clearTimeout(holdT);
-        armed = false;
-        d.classList.remove('is-held');
-        if (dragging) { dragging = false; resumeOrbit(t); return; }
-        // просто нажатие — открываем кадр
-        if (!moved) { if (driftFocus === t) closeFocus(); else openFocus(t); }
-      }
-      d.addEventListener('pointerup', drop);
-      d.addEventListener('pointercancel', function () {
-        clearTimeout(holdT); armed = false; dragging = false;
-        d.classList.remove('is-held');
+      d.addEventListener('click', function () {
+        if (driftFocus === t) closeFocus(); else openFocus(t);
       });
     });
 
@@ -977,39 +934,6 @@ window.FHh = window.FHh || {};
 
     if (S.state.settings.aboutDrift && !B.reducedMotion) startDrift();
     else driftTiles.forEach(place);
-  }
-
-  /* Отпустили кадр — он не застывает, а подхватывает орбиту, проходящую
-     через то место, куда его положили: радиус кольца подбираем под точку,
-     а лёгкий толчок по касательной сразу возвращает его в общий ход. */
-  function resumeOrbit(t) {
-    t.pinned = false;
-    if (!driftBox) return;
-    var W = driftBox.clientWidth, H = driftBox.clientHeight;
-    var center = null;
-    driftTiles.forEach(function (x) { if (x.center) center = x; });
-    if (!W || !H || !center) return;
-
-    var dx = (t.x + t.w / 2) - (center.x + center.w / 2);
-    var dy = (t.y + t.h / 2) - (center.y + center.h / 2);
-    var kx = center.w * 0.5 + t.w * 0.26;
-    var ky = center.h * 0.42 + t.h * 0.2;
-    var maxRx = Math.max(30, W * 0.5 - t.w * 0.5 - 4);
-    var maxRy = Math.max(30, H * 0.5 - t.h * 0.5 - 4);
-
-    var best = 0, bestErr = Infinity, k, rx, ry, u, err;
-    for (k = -110; k <= 110; k += 5) {
-      rx = Math.min(maxRx, Math.max(kx * 1.04, W * 0.5 - t.w * 0.55 + k * 0.5));
-      ry = Math.min(maxRy, Math.max(ky, H * 0.5 - t.h * 0.55 + k * 0.35));
-      u = Math.sqrt((dx / rx) * (dx / rx) + (dy / ry) * (dy / ry));
-      err = Math.abs(u - 1);
-      if (err < bestErr) { bestErr = err; best = k; }
-    }
-    t.orbit = best;
-
-    var d = Math.sqrt(dx * dx + dy * dy) || 1;
-    t.vx = (-dy / d) * 85;
-    t.vy = (dx / d) * 85;
   }
 
   /* Стартовая раскладка: центральный кадр в середине, остальные — кольцом */
@@ -1094,8 +1018,8 @@ window.FHh = window.FHh || {};
       a = driftTiles[i];
       for (j = i + 1; j < n; j++) {
         b = driftTiles[j];
-        var aFix = a.center || a.pinned || a === driftFocus;
-        var bFix = b.center || b.pinned || b === driftFocus;
+        var aFix = a.center || a === driftFocus;
+        var bFix = b.center || b === driftFocus;
         if (aFix && bFix) continue;
         ddx = (b.x + b.w / 2) - (a.x + a.w / 2);
         ddy = (b.y + b.h / 2) - (a.y + a.h / 2);
@@ -1111,7 +1035,6 @@ window.FHh = window.FHh || {};
     driftTiles.forEach(function (t) {
       if (t.center) { t.x = W / 2 - t.w / 2; t.y = H / 2 - t.h / 2; place(t); return; }
       if (t === driftFocus) return;                     // раскрытый кадр стоит
-      if (t.pinned) { clampTile(t, W, H); place(t); return; }   // положили руками
       if (t === driftHover) { t.vx *= 0.88; t.vy *= 0.88; place(t); return; }
 
       // собственный курс, медленно поворачивающийся
