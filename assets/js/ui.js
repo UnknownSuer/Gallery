@@ -1332,7 +1332,9 @@ window.FHh = window.FHh || {};
       views.forEach(function (v) { v.classList.toggle('is-active', v === target); });
       $$('.nav__links a').forEach(function (a) { a.classList.toggle('is-active', a.dataset.route === name); });
       window.scrollTo(0, 0);
-      if (name === 'home') renderGrid(true);
+      // ботанику героя перерисовываем при возврате: пока раздел был скрыт,
+      // холст мог остаться нулевого размера
+      if (name === 'home') { renderGrid(true); if (hero) hero.redraw(); }
       if (name === 'about') renderDrift(true);
       if (name === 'services') renderServices();
     };

@@ -349,6 +349,12 @@ window.FHh = window.FHh || {};
 
     function draw() {
       if (RM) return;
+      // Раздел может быть скрыт (display:none) — тогда холст нулевого
+      // размера, и пересборка ужала бы битмап до 1×1. Вернувшись на
+      // главную, посетитель увидел бы пустой герой без папоротников.
+      var box = canvas.getBoundingClientRect();
+      if (!box.width || !box.height) return;
+
       var fit = fitCanvas(canvas, window.innerWidth < 720 ? 1.25 : 1.75);
       var g = fit.g, w = fit.w, h = fit.h;
       g.clearRect(0, 0, w, h);
