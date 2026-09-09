@@ -275,7 +275,9 @@ body[data-phase="live"] .hero__foot{opacity:1}
   -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
   -webkit-mask-position:center;mask-position:center;
   -webkit-mask-size:contain;mask-size:contain;background:currentColor}
-.band>*{position:relative;z-index:1}
+/* водяной знак должен остаться вне потока: правило ниже делало его
+   обычной ячейкой сетки, и крупная строка съезжала во вторую колонку */
+.band>*:not(.band__lineart){position:relative;z-index:1}
 .band__lead{font-size:clamp(16px,2.2vw,26px);line-height:1.35;margin:0;
   color:var(--on-band)}
 .band__text{font-size:calc(13.8px * var(--fs));line-height:1.75;
@@ -477,8 +479,11 @@ body[data-phase="live"] .hero__foot{opacity:1}
 }
 
 /* ---- «о мастере»: текст слева, дрейфующие фотографии справа ---- */
+/* на очень широком экране (или при сильном отдалении) раздел не должен
+   растягиваться бесконечно — иначе поле ленты становится огромным */
 .about{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.38fr);
-  gap:clamp(24px,4vw,52px);align-items:start;padding:0 var(--gut)}
+  gap:clamp(24px,4vw,52px);align-items:start;padding:0 var(--gut);
+  max-width:calc(var(--maxw) + var(--gut) * 2);margin:0 auto}
 .about__col{position:relative;z-index:1}
 /* лента может плавать и слева от текста — переключается в панели */
 .about.is-left{grid-template-columns:minmax(0,1.38fr) minmax(0,.82fr)}
@@ -489,14 +494,18 @@ body[data-phase="live"] .hero__foot{opacity:1}
    кадра своя скорость, борта отбивают, центральный кадр обходят, а от
    того, на который навели курсор, остальные разбегаются. */
 .drift{position:relative;width:100%;min-width:0;
-  height:min(72vh,660px);height:min(72svh,660px);min-height:320px;
+  height:min(78vh,720px);height:min(78svh,720px);min-height:320px;
   touch-action:manipulation}
 .drift__ph{position:absolute;left:0;top:0;width:120px;
-  overflow:hidden;background:var(--paper-2);cursor:pointer;
+  overflow:hidden;background:var(--paper-2);cursor:grab;
+  user-select:none;-webkit-user-select:none;
   box-shadow:0 10px 32px -18px color-mix(in srgb,var(--ink) 60%,transparent);
   transition:box-shadow .4s var(--ease);
   will-change:transform;backface-visibility:hidden}
-.drift__ph img,.drift__ph video{width:100%;height:auto;display:block}
+/* картинка не должна перехватывать жест: иначе браузер начинает
+   собственное перетаскивание и кадр не сдвинуть */
+.drift__ph img,.drift__ph video{width:100%;height:auto;display:block;
+  -webkit-user-drag:none;pointer-events:none}
 .drift__ph.is-center{z-index:2;
   box-shadow:0 22px 60px -24px color-mix(in srgb,var(--ink) 68%,transparent)}
 .drift__ph.is-near{z-index:5;

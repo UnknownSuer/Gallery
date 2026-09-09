@@ -835,8 +835,8 @@ window.FHh = window.FHh || {};
 
   var REP_R = 250;    // радиус «испуга», px
   var REP_F = 2000;   // сила отталкивания
-  var SEP = 2100;     // насколько кадры расталкивают друг друга
-  var WANDER = 40;    // насколько сильно кадр сам меняет курс
+  var SEP = 520;      // насколько кадры расталкивают друг друга
+  var WANDER = 16;    // насколько сильно кадр сам меняет курс
   var VMAX = 520;
 
   function driftActive() {
@@ -887,6 +887,9 @@ window.FHh = window.FHh || {};
         img.loading = 'lazy';
         img.decoding = 'async';
       }
+      // без этого браузер начинает своё перетаскивание картинки
+      // и забирает указатель у нашего обработчика
+      img.draggable = false;
       d.appendChild(img);
       box.appendChild(d);
       S.resolveMedia(ref).then(function (u) {
@@ -901,9 +904,11 @@ window.FHh = window.FHh || {};
         rot: ((k % 5) - 2) * 0.8,
         ang: (i * 2.399) % 6.283,
         spin: 0.22 + (k % 5) * 0.06,
-        kw: isCenter ? 0.42 : (0.22 + (k % 5) * 0.032),
-        orbit: ((k % 5) - 2) * 30,                  // своё кольцо у каждого
-        spinDir: (58 + (k % 4) * 16) * (i % 2 ? 1 : -1),
+        kw: isCenter ? 0.32 : (0.198 + (k % 5) * 0.029),
+        // кольца разного радиуса: на одном десять кадров вставали в
+        // пробку и глушили вращение, упираясь друг в друга
+        orbit: ((k % 5) - 2) * 55,
+        spinDir: 130 + (k % 4) * 26,     // одно направление на всех
         x: 0, y: 0, vx: 0, vy: 0, w: 0, h: 0
       };
       driftTiles.push(t);
@@ -984,9 +989,13 @@ window.FHh = window.FHh || {};
     var n = Math.max(1, others.length);
     var oi = 0;
 
+    // за основу берём меньшую сторону: на широком и низком поле доля
+    // от ширины раздувала кадры, и на сильном отдалении они ломали вёрстку
+    var base = Math.min(W, H * 1.25);
     driftTiles.forEach(function (t) {
       if (t === driftFocus) return;
-      var w = Math.round(W * t.kw);
+      var w = Math.round(base * t.kw);
+      w = Math.max(96, Math.min(t.center ? 420 : 300, w));
       var el = t.el;
       el.style.width = w + 'px';
       t.w = w;
@@ -1058,7 +1067,7 @@ window.FHh = window.FHh || {};
         ddx = (b.x + b.w / 2) - (a.x + a.w / 2);
         ddy = (b.y + b.h / 2) - (a.y + a.h / 2);
         dd = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
-        need = (Math.min(a.w, a.h) + Math.min(b.w, b.h)) * 0.62;
+        need = (Math.min(a.w, a.h) + Math.min(b.w, b.h)) * 0.40;
         if (dd >= need) continue;
         sf = (1 - dd / need) * SEP * dt;
         if (!aFix) { a.vx -= (ddx / dd) * sf; a.vy -= (ddy / dd) * sf; }
@@ -1099,7 +1108,13 @@ window.FHh = window.FHh || {};
         d = Math.sqrt(dx * dx + dy * dy) || 1;
         // орбита эллиптическая: по ширине места больше, чем по высоте,
         // и круглое кольцо било кадры о верхний и нижний борта
-        var rx = W * 0.34 + t.orbit, ry = H * 0.30 + t.orbit * 0.7;
+        var kx = center.w * 0.5 + t.w * 0.26;
+        var ky = center.h * 0.42 + t.h * 0.2;
+        // кольцо всегда чуть снаружи зоны центрального кадра: иначе
+        // «не наезжай» и «держись кольца» тянули в разные стороны и
+        // кадр замирал, упираясь в борт
+        var rx = Math.max(kx * 1.06, W * 0.5 - t.w * 0.55) + t.orbit * 0.5;
+        var ry = Math.max(ky * 1.06, H * 0.5 - t.h * 0.55) + t.orbit * 0.35;
         var u = Math.sqrt((dx / rx) * (dx / rx) + (dy / ry) * (dy / ry)) || 0.001;
         // чем дальше кадр от кольца, тем сильнее его тянет обратно:
         // после «испуга» он возвращается в темпе, а не ползёт
@@ -1110,9 +1125,9 @@ window.FHh = window.FHh || {};
         t.vy += (dx / d) * t.spinDir * dt;
 
         // и всё же не наезжаем на него вплотную
-        var keep = Math.max(center.w, center.h) * 0.55 + Math.min(t.w, t.h) * 0.36;
-        if (d < keep) {
-          f = (1 - d / keep) * 900;
+        var uk = Math.sqrt((dx / kx) * (dx / kx) + (dy / ky) * (dy / ky));
+        if (uk < 1) {
+          f = (1 - uk) * 700;
           t.vx += (dx / d) * f * dt;
           t.vy += (dy / d) * f * dt;
         }
