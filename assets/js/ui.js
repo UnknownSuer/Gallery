@@ -959,7 +959,7 @@ window.FHh = window.FHh || {};
         clearTimeout(holdT);
         armed = false;
         d.classList.remove('is-held');
-        if (dragging) { dragging = false; return; }
+        if (dragging) { dragging = false; resumeOrbit(t); return; }
         // просто нажатие — открываем кадр
         if (!moved) { if (driftFocus === t) closeFocus(); else openFocus(t); }
       }
@@ -977,6 +977,39 @@ window.FHh = window.FHh || {};
 
     if (S.state.settings.aboutDrift && !B.reducedMotion) startDrift();
     else driftTiles.forEach(place);
+  }
+
+  /* Отпустили кадр — он не застывает, а подхватывает орбиту, проходящую
+     через то место, куда его положили: радиус кольца подбираем под точку,
+     а лёгкий толчок по касательной сразу возвращает его в общий ход. */
+  function resumeOrbit(t) {
+    t.pinned = false;
+    if (!driftBox) return;
+    var W = driftBox.clientWidth, H = driftBox.clientHeight;
+    var center = null;
+    driftTiles.forEach(function (x) { if (x.center) center = x; });
+    if (!W || !H || !center) return;
+
+    var dx = (t.x + t.w / 2) - (center.x + center.w / 2);
+    var dy = (t.y + t.h / 2) - (center.y + center.h / 2);
+    var kx = center.w * 0.5 + t.w * 0.26;
+    var ky = center.h * 0.42 + t.h * 0.2;
+    var maxRx = Math.max(30, W * 0.5 - t.w * 0.5 - 4);
+    var maxRy = Math.max(30, H * 0.5 - t.h * 0.5 - 4);
+
+    var best = 0, bestErr = Infinity, k, rx, ry, u, err;
+    for (k = -110; k <= 110; k += 5) {
+      rx = Math.min(maxRx, Math.max(kx * 1.04, W * 0.5 - t.w * 0.55 + k * 0.5));
+      ry = Math.min(maxRy, Math.max(ky, H * 0.5 - t.h * 0.55 + k * 0.35));
+      u = Math.sqrt((dx / rx) * (dx / rx) + (dy / ry) * (dy / ry));
+      err = Math.abs(u - 1);
+      if (err < bestErr) { bestErr = err; best = k; }
+    }
+    t.orbit = best;
+
+    var d = Math.sqrt(dx * dx + dy * dy) || 1;
+    t.vx = (-dy / d) * 85;
+    t.vy = (dx / d) * 85;
   }
 
   /* Стартовая раскладка: центральный кадр в середине, остальные — кольцом */
@@ -1067,7 +1100,7 @@ window.FHh = window.FHh || {};
         ddx = (b.x + b.w / 2) - (a.x + a.w / 2);
         ddy = (b.y + b.h / 2) - (a.y + a.h / 2);
         dd = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
-        need = (Math.min(a.w, a.h) + Math.min(b.w, b.h)) * 0.40;
+        need = (Math.min(a.w, a.h) + Math.min(b.w, b.h)) * 0.32;
         if (dd >= need) continue;
         sf = (1 - dd / need) * SEP * dt;
         if (!aFix) { a.vx -= (ddx / dd) * sf; a.vy -= (ddy / dd) * sf; }
@@ -1113,8 +1146,12 @@ window.FHh = window.FHh || {};
         // кольцо всегда чуть снаружи зоны центрального кадра: иначе
         // «не наезжай» и «держись кольца» тянули в разные стороны и
         // кадр замирал, упираясь в борт
-        var rx = Math.max(kx * 1.06, W * 0.5 - t.w * 0.55) + t.orbit * 0.5;
-        var ry = Math.max(ky * 1.06, H * 0.5 - t.h * 0.55) + t.orbit * 0.35;
+        // кольцо обязано уместиться в рамку: если оно выходит за верх или
+        // низ, кадр каждый оборот бьётся о борт, теряет ход и застывает
+        var maxRx = Math.max(30, W * 0.5 - t.w * 0.5 - 4);
+        var maxRy = Math.max(30, H * 0.5 - t.h * 0.5 - 4);
+        var rx = Math.min(maxRx, Math.max(kx * 1.04, W * 0.5 - t.w * 0.55 + t.orbit * 0.5));
+        var ry = Math.min(maxRy, Math.max(ky, H * 0.5 - t.h * 0.55 + t.orbit * 0.35));
         var u = Math.sqrt((dx / rx) * (dx / rx) + (dy / ry) * (dy / ry)) || 0.001;
         // чем дальше кадр от кольца, тем сильнее его тянет обратно:
         // после «испуга» он возвращается в темпе, а не ползёт
