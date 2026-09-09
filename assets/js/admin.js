@@ -19,6 +19,7 @@ window.FHh = window.FHh || {};
 
   var TABS = [
     { id: 'items',  name: 'Работы' },
+    { id: 'services', name: 'Услуги' },
     { id: 'groups', name: 'Группы' },
     { id: 'cats',   name: 'Категории' },
     { id: 'look',   name: 'Оформление' },
@@ -27,7 +28,8 @@ window.FHh = window.FHh || {};
     { id: 'data',   name: 'Данные' }
   ];
   var tab = 'items';
-  var editing = null;   // id редактируемой работы или null
+  var editing = null;     // id редактируемой работы или null
+  var editingSvc = null;  // id редактируемой услуги или null
   var itemQuery = '';   // поиск по списку работ
   var dirty = false;
   var unlocked = false;
@@ -452,6 +454,247 @@ window.FHh = window.FHh || {};
   }
 
   /* ============================================================
+     ВКЛАДКА: УСЛУГИ
+     Не товар: своё описание, слоты и статус записи.
+     ============================================================ */
+  var SVC_STATUS = [
+    ['open', 'Запись открыта'],
+    ['order', 'По договорённости'],
+    ['closed', 'Сейчас не провожу']
+  ];
+
+  function svcById(id) {
+    return (S.state.services || []).filter(function (x) { return x.id === id; })[0];
+  }
+
+  function viewServices() {
+    if (editingSvc) return viewServiceEditor();
+    var list = S.state.services || [];
+    var rows = list.map(function (sv, i) {
+      var slots = (sv.slots || []).length;
+      return '<div class="arow" data-i="' + i + '" style="grid-template-columns:minmax(0,1fr) auto">' +
+        '<div style="min-width:0">' +
+          '<p class="arow__t">' + esc(sv.title || '(без названия)') + '</p>' +
+          '<p class="arow__m">' + esc(sv.kind || 'без вида') + ' · ' +
+            (sv.price ? S.money(sv.price) : 'по запросу') + ' · ' +
+            S.serviceLabel(sv.status) +
+            (sv.hidden ? ' · скрыта' : '') +
+            (slots ? ' · слотов: ' + slots + (sv.showSlots ? '' : ' (скрыты)') : '') +
+          '</p>' +
+        '</div>' +
+        '<div class="arow__btns">' +
+          '<button data-act="sup">↑</button><button data-act="sdown">↓</button>' +
+          '<button data-act="sedit">Изменить</button>' +
+          '<button data-act="scopy">Дубль</button>' +
+          '<button data-act="shide">' + (sv.hidden ? 'Показать' : 'Скрыть') + '</button>' +
+          '<button data-act="sdel">Удалить</button>' +
+        '</div></div>';
+    }).join('');
+
+    return '<div class="editor" style="max-width:none">' +
+      '<p class="hint">Раздел «услуги» — про то, что делается вместе с человеком: ' +
+      'аренда, занятия, турниры, уже проведённые мероприятия. У каждой услуги может быть ' +
+      'расписание слотов, а может и не быть — тогда просто уберите галочку показа.</p>' +
+      '<div class="toolbar"><button class="btn btn--solid" data-act="snew">+ Новая услуга</button>' +
+      '<button class="btn btn--ghost" data-act="sshow">Смотреть на сайте</button></div>' +
+      (rows || '<p class="hint">Пока ни одной услуги.</p>') + '</div>';
+  }
+
+  function viewServiceEditor() {
+    var sv = svcById(editingSvc);
+    if (!sv) { editingSvc = null; return viewServices(); }
+
+    var specs = (sv.specs || []).map(function (x, i) {
+      return '<div class="specrow" data-spec="' + i + '">' +
+        '<span class="specrow__grip">·</span>' +
+        field('Параметр', '<input type="text" data-vk="' + i + '" value="' + esc(x[0]) + '">') +
+        field('Значение', '<input type="text" data-vv="' + i + '" value="' + esc(x[1]) + '">') +
+        '<label class="field"><span>&nbsp;</span><button class="btn btn--ghost btn--sm" ' +
+        'data-act="vspecdel" data-i="' + i + '">×</button></label></div>';
+    }).join('');
+
+    var slots = (sv.slots || []).map(function (sl, i) {
+      return '<div class="specrow" data-slot="' + i + '" style="grid-template-columns:24px 1fr 1fr 90px auto">' +
+        '<span class="specrow__grip">·</span>' +
+        field('Когда', '<input type="text" data-slw="' + i + '" value="' + esc(sl.when || '') + '" placeholder="суббота, 11:00">') +
+        field('Примечание', '<input type="text" data-sln="' + i + '" value="' + esc(sl.note || '') + '" placeholder="начинающие">') +
+        field('Мест', '<input type="number" data-sll="' + i + '" value="' + (sl.left === '' || sl.left == null ? '' : sl.left) + '">') +
+        '<label class="field"><span>&nbsp;</span><button class="btn btn--ghost btn--sm" ' +
+        'data-act="slotdel" data-i="' + i + '">×</button></label></div>';
+    }).join('');
+
+    return '<div class="editor">' +
+      '<div class="toolbar">' +
+        '<button class="btn btn--ghost" data-act="sback">← К списку</button>' +
+        '<span class="hint" style="margin:0">Код: ' + esc(sv.id) + '</span>' +
+      '</div>' +
+
+      '<h4>Основное</h4>' +
+      field('Название', '<input type="text" data-v="title" value="' + esc(sv.title) + '">') +
+      '<div class="cols">' +
+        field('Вид', '<input type="text" data-v="kind" value="' + esc(sv.kind || '') + '" placeholder="аренда, занятие, портфолио">') +
+        field('Статус', '<select data-v="status">' + SVC_STATUS.map(function (o) {
+          return '<option value="' + o[0] + '"' + (sv.status === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+        }).join('') + '</select>') +
+        field('Цена (пусто — «по запросу»)', '<input type="number" data-v="price" value="' + (sv.price == null ? '' : sv.price) + '">') +
+        field('Приписка к цене', '<input type="text" data-v="priceNote" value="' + esc(sv.priceNote || '') + '" placeholder="за занятие, группа до 6">') +
+      '</div>' +
+
+      '<h4>Фото и видео</h4>' +
+      '<div class="imgs" id="svcImgs"></div>' +
+      '<div class="drop" id="svcDrop">Перетащите файлы сюда или нажмите. Первый кадр — главный.</div>' +
+      '<input type="file" id="svcFile" accept="image/*,video/*" multiple hidden>' +
+
+      '<h4>Описание</h4>' +
+      field('HTML описания', '<textarea data-v="desc">' + esc(sv.desc || '') + '</textarea>',
+            'Здесь можно расписать подробно — раздел для того и сделан.') +
+
+      '<h4>Характеристики</h4>' + specs +
+      '<div class="toolbar"><button class="btn btn--ghost" data-act="vspecadd">+ Строка</button></div>' +
+
+      '<h4>Слоты и даты</h4>' +
+      field('Показывать расписание',
+        '<select data-v="showSlots"><option value="1"' + (sv.showSlots ? ' selected' : '') + '>показывать</option>' +
+        '<option value="0"' + (!sv.showSlots ? ' selected' : '') + '>скрыть совсем</option></select>',
+        'Если расписание не нужно — уберите, и на сайте его не будет.') +
+      slots +
+      '<div class="toolbar"><button class="btn btn--ghost" data-act="slotadd">+ Слот</button>' +
+      '<span class="hint" style="margin:0">Поле «мест» можно оставить пустым — тогда счётчик не показывается.</span></div>' +
+      '</div>';
+  }
+
+  function afterServices() {
+    if (editingSvc) return afterServiceEditor();
+    var list = S.state.services || [];
+
+    $('#adminBody').onclick = function (e) {
+      var b = e.target.closest('[data-act]'); if (!b) return;
+      var row = e.target.closest('.arow');
+      var i = row ? +row.dataset.i : -1;
+      var act = b.dataset.act;
+
+      if (act === 'snew') {
+        var sv = { id: S.uid(), title: 'Новая услуга', kind: '', price: null, priceNote: '',
+                   status: 'open', desc: '<p></p>', specs: [], images: [], slots: [], showSlots: 0 };
+        list.unshift(sv); editingSvc = sv.id; touch(); render(); return;
+      }
+      if (act === 'sshow') {
+        if (dirty) persist(true);
+        $('#admin').classList.remove('is-open');
+        NS.ui.lockScroll(false);
+        location.hash = '#/services';
+        NS.ui.toast('Раздел услуг на сайте. Панель — Ctrl+Shift+A');
+        return;
+      }
+      if (i < 0) return;
+      if (act === 'sedit') { editingSvc = list[i].id; render(); return; }
+      if (act === 'sup' && i > 0) { list.splice(i - 1, 0, list.splice(i, 1)[0]); touch(); render(); return; }
+      if (act === 'sdown' && i < list.length - 1) { list.splice(i + 1, 0, list.splice(i, 1)[0]); touch(); render(); return; }
+      if (act === 'scopy') {
+        var c = S.clone(list[i]); c.id = S.uid(); c.title += ' (копия)';
+        list.splice(i + 1, 0, c); touch(); render(); return;
+      }
+      if (act === 'shide') { list[i].hidden = !list[i].hidden; touch(); render(); return; }
+      if (act === 'sdel') {
+        if (!confirm('Удалить «' + list[i].title + '»?')) return;
+        (list[i].images || []).forEach(function (r) { S.dropImage(r); });
+        list.splice(i, 1); touch(); render(); return;
+      }
+    };
+  }
+
+  function afterServiceEditor() {
+    var sv = svcById(editingSvc);
+    if (!sv) return;
+
+    function drawImgs() {
+      var wrap = $('#svcImgs');
+      wrap.innerHTML = '';
+      (sv.images || []).forEach(function (ref, i) {
+        var video = S.mediaKind(ref) === 'video';
+        var d = document.createElement('figure');
+        d.className = 'imgs__item' + (i === 0 ? ' is-cover' : '') + (video ? ' is-video' : '');
+        d.style.margin = '0';
+        d.innerHTML = (video ? '<video muted playsinline preload="metadata"></video>' : '<img alt="">') +
+          '<div class="imgs__btns">' +
+            '<button data-mv="-1">←</button>' +
+            (i === 0 ? '' : '<button data-cover="1">★</button>') +
+            '<button data-mv="1">→</button><button data-del="1">×</button></div>';
+        wrap.appendChild(d);
+        S.resolveMedia(ref).then(function (u) { $('img,video', d).src = u + (video ? '#t=0.1' : ''); });
+        d.addEventListener('click', function (e) {
+          var b = e.target.closest('button'); if (!b) return;
+          if (b.dataset.del) { S.dropImage(sv.images[i]); sv.images.splice(i, 1); }
+          else if (b.dataset.cover) sv.images.unshift(sv.images.splice(i, 1)[0]);
+          else if (b.dataset.mv) {
+            var to = i + Number(b.dataset.mv);
+            if (to < 0 || to >= sv.images.length) return;
+            sv.images.splice(to, 0, sv.images.splice(i, 1)[0]);
+          }
+          touch(); drawImgs();
+        });
+      });
+      if (!(sv.images || []).length) {
+        wrap.innerHTML = '<p class="hint" style="margin:0">Без фото услуга покажется одним текстом.</p>';
+      }
+    }
+    drawImgs();
+
+    var drop = $('#svcDrop'), inp = $('#svcFile');
+    function ingest(files) {
+      var arr = Array.prototype.slice.call(files).filter(function (f) { return /^(image|video)\//.test(f.type); });
+      if (!arr.length) return;
+      status('обработка файлов…');
+      Promise.all(arr.map(function (f) { return S.ingestFile(f).catch(function () { return null; }); }))
+        .then(function (refs) {
+          sv.images = (sv.images || []).concat(refs.filter(Boolean));
+          touch(); drawImgs(); status('добавлено: ' + refs.filter(Boolean).length);
+        });
+    }
+    drop.addEventListener('click', function () { inp.click(); });
+    inp.addEventListener('change', function () { ingest(inp.files); inp.value = ''; });
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('is-over'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('is-over'); });
+    });
+    drop.addEventListener('drop', function (e) { if (e.dataTransfer) ingest(e.dataTransfer.files); });
+
+    $('#adminBody').oninput = function (e) {
+      var t = e.target;
+      if (t.dataset.v) {
+        var k = t.dataset.v, v = t.value;
+        if (k === 'price') v = v === '' ? null : (Number(v) || null);
+        if (k === 'showSlots') v = Number(v);
+        sv[k] = v; touch();
+      }
+      if (t.dataset.vk !== undefined) { sv.specs[+t.dataset.vk][0] = t.value; touch(); }
+      if (t.dataset.vv !== undefined) { sv.specs[+t.dataset.vv][1] = t.value; touch(); }
+      if (t.dataset.slw !== undefined) { sv.slots[+t.dataset.slw].when = t.value; touch(); }
+      if (t.dataset.sln !== undefined) { sv.slots[+t.dataset.sln].note = t.value; touch(); }
+      if (t.dataset.sll !== undefined) {
+        sv.slots[+t.dataset.sll].left = t.value === '' ? '' : (Number(t.value) || 0); touch();
+      }
+    };
+    $('#adminBody').onchange = $('#adminBody').oninput;
+
+    $('#adminBody').onclick = function (e) {
+      var b = e.target.closest('[data-act]'); if (!b) return;
+      var act = b.dataset.act;
+      if (act === 'sback') { editingSvc = null; render(); }
+      if (act === 'vspecadd') { sv.specs = sv.specs || []; sv.specs.push(['', '']); touch(); render(); }
+      if (act === 'vspecdel') { sv.specs.splice(+b.dataset.i, 1); touch(); render(); }
+      if (act === 'slotadd') {
+        sv.slots = sv.slots || [];
+        sv.slots.push({ when: '', note: '', left: '' });
+        sv.showSlots = 1; touch(); render();
+      }
+      if (act === 'slotdel') { sv.slots.splice(+b.dataset.i, 1); touch(); render(); }
+    };
+  }
+
+  /* ============================================================
      ВКЛАДКА: ГРУППЫ ТОВАРОВ
      ============================================================ */
   function viewGroups() {
@@ -794,6 +1037,7 @@ window.FHh = window.FHh || {};
       '<h4>Цветной блок</h4>' +
       field('Крупная строка', area('bandLead', st.bandLead)) +
       field('Текст блока (HTML)', area('bandText', st.bandText)) +
+      '<h4>Страница «Услуги»</h4>' + field('Вступление (HTML)', area('servicesLead', st.servicesLead)) +
       '<h4>Страница «О мастере»</h4>' + field('HTML', area('aboutText', st.aboutText)) +
       '<h4>Страница «Контакты»</h4>' + field('HTML', area('contactsText', st.contactsText)) +
       '<h4>Подвал</h4>' + field('Строка в футере', input('footerNote', st.footerNote)) +
@@ -990,6 +1234,7 @@ window.FHh = window.FHh || {};
 
       '<h4>Состояние</h4>' +
       '<p class="hint">Работ: ' + st.items.length +
+      ' · услуг: ' + (st.services || []).length +
       ' · групп: ' + st.groups.length +
       ' · категорий: ' + st.categories.length +
       ' · своих палитр: ' + (st.palettes || []).length +
@@ -1104,6 +1349,7 @@ window.FHh = window.FHh || {};
      ============================================================ */
   var VIEWS = {
     items:  { view: viewItems,  after: function () { editing ? afterItemEditor() : afterItems(); } },
+    services: { view: viewServices, after: afterServices },
     groups: { view: viewGroups, after: afterGroups },
     cats:   { view: viewCats,   after: afterCats },
     look:   { view: viewLook,   after: afterLook },
@@ -1191,7 +1437,7 @@ window.FHh = window.FHh || {};
 
   $('#adminTabs').addEventListener('click', function (e) {
     var b = e.target.closest('[data-tab]'); if (!b) return;
-    tab = b.dataset.tab; editing = null; render();
+    tab = b.dataset.tab; editing = null; editingSvc = null; render();
   });
 
   $('#lockForm').addEventListener('submit', function (e) {

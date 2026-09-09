@@ -222,8 +222,10 @@ window.FHh = window.FHh || {};
   }
 
   function cardHTML(it) {
+    // «под заказ» показываем только подписью у ценника, чтобы не двоилось;
+    // «в наличии», наоборот, выносим наверх заметной зелёной плашкой
     var badge = it.status === 'sold' ? '<span class="card__badge">продано</span>'
-              : it.status === 'order' ? '<span class="card__badge card__badge--order">под заказ</span>' : '';
+              : it.status === 'available' ? '<span class="card__badge card__badge--ok">в наличии</span>' : '';
     return '' +
       '<div class="card__media">' + badge +
         '<img class="card__img" alt="' + esc(it.title) + '" loading="lazy">' +
@@ -637,6 +639,9 @@ window.FHh = window.FHh || {};
           set(B.placeholder(it.id + it.title, 1200, 1500));
         }
       }
+      node.addEventListener('click', function () {
+        if (node.classList.contains('is-on')) openViewer(node);
+      });
       wrap.appendChild(node);
 
       if (refs.length > 1) {
@@ -676,6 +681,131 @@ window.FHh = window.FHh || {};
     $('#product').setAttribute('aria-hidden', 'true');
     lockScroll(false);
     currentItem = null;
+  }
+
+  /* ============================================================
+     УСЛУГИ
+     Отдельный раздел: не товар, а то, что делается вместе с человеком —
+     аренда, занятия, турниры и уже проведённые мероприятия. У услуги
+     может быть расписание слотов, а может и не быть.
+     ============================================================ */
+  function bookText(sv) {
+    var lines = [
+      'Здравствуйте! Интересует услуга с сайта:',
+      '',
+      '• ' + sv.title + (sv.kind ? ' (' + sv.kind + ')' : '')
+    ];
+    if (sv.price) lines.push('• Стоимость: ' + S.money(sv.price) + (sv.priceNote ? ' — ' + sv.priceNote : ''));
+    return lines.join('\n');
+  }
+
+  function book(sv) {
+    var text = bookText(sv);
+    var open = function () { window.open(tgLink(), '_blank', 'noopener'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(function () { toast('Текст заявки скопирован — вставьте в чат'); })
+        .catch(function () { toast('Открываю Telegram'); })
+        .then(open, open);
+    } else { toast('Открываю Telegram'); open(); }
+  }
+
+  function slotsHTML(sv) {
+    if (!sv.showSlots || !(sv.slots || []).length) return '';
+    return '<p class="slots__h">ближайшие слоты</p><ul class="slots">' +
+      sv.slots.map(function (sl) {
+        var left = sl.left === '' || sl.left === null || sl.left === undefined
+          ? '' : Number(sl.left);
+        var tag = left === '' ? ''
+          : left > 0 ? '<em>' + left + ' ' + plural(left, 'место', 'места', 'мест') + '</em>'
+                     : '<em class="is-none">мест нет</em>';
+        return '<li class="slot"><b>' + esc(sl.when) + '</b>' +
+          '<span>' + esc(sl.note || '') + '</span>' + tag + '</li>';
+      }).join('') + '</ul>';
+  }
+
+  function renderServices() {
+    var box = $('#services');
+    if (!box) return;
+    var list = (S.state.services || []).filter(function (x) { return !x.hidden; });
+    var empty = $('#servicesEmpty');
+    if (empty) empty.hidden = list.length > 0;
+    box.innerHTML = '';
+
+    list.forEach(function (sv) {
+      var el = document.createElement('article');
+      el.className = 'svc';
+      var st = sv.status || 'open';
+      var refs = (sv.images || []).filter(Boolean);
+
+      el.innerHTML =
+        '<div>' +
+          (refs.length ? '<div class="svc__media"></div><div class="svc__thumbs"></div>' : '') +
+        '</div>' +
+        '<div class="svc__body">' +
+          (sv.kind ? '<p class="svc__kicker">' + esc(sv.kind) + '</p>' : '') +
+          '<h3 class="svc__title">' + esc(sv.title) + '</h3>' +
+          '<div class="svc__price">' +
+            (sv.price ? '<span>' + S.money(sv.price) + '</span>' : '<span>по запросу</span>') +
+            '<span class="st st--' + st + '">' + S.serviceLabel(st) + '</span>' +
+          '</div>' +
+          (sv.priceNote ? '<p class="svc__note">' + esc(sv.priceNote) + '</p>' : '') +
+          '<div class="prose svc__desc">' + (sv.desc || '') + '</div>' +
+          ((sv.specs || []).length
+            ? '<ul class="specs mono">' + sv.specs.map(function (x) {
+                return '<li><span>' + esc(x[0]) + '</span><b>' + esc(x[1]) + '</b></li>';
+              }).join('') + '</ul>'
+            : '') +
+          slotsHTML(sv) +
+          (st === 'closed' ? ''
+            : '<button class="cta" data-book><span>' +
+              (st === 'order' ? 'обсудить в telegram' : 'записаться в telegram') +
+              '</span><svg viewBox="0 0 24 24" aria-hidden="true">' +
+              '<path d="M4 12h16m0 0-6-6m6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.6"/>' +
+              '</svg></button>') +
+        '</div>';
+
+      if (refs.length) {
+        var media = $('.svc__media', el);
+        var thumbs = $('.svc__thumbs', el);
+        var show = function (i) {
+          var ref = refs[i];
+          var isVideo = S.mediaKind(ref) === 'video';
+          media.innerHTML = '';
+          var node = document.createElement(isVideo ? 'video' : 'img');
+          if (isVideo) {
+            node.muted = true; node.loop = true; node.playsInline = true;
+            node.setAttribute('playsinline', ''); node.controls = true;
+          } else { node.alt = esc(sv.title); node.loading = 'lazy'; }
+          S.resolveMedia(ref).then(function (u) {
+            if (u) node.src = u + (isVideo ? '#t=0.1' : '');
+          });
+          if (!isVideo) node.addEventListener('click', function () { openViewer(node); });
+          media.appendChild(node);
+          $$('button', thumbs).forEach(function (b, k) { b.classList.toggle('is-on', k === i); });
+        };
+        if (refs.length > 1) {
+          refs.forEach(function (ref, i) {
+            var b = document.createElement('button');
+            b.setAttribute('aria-label', 'кадр ' + (i + 1));
+            var isVideo = S.mediaKind(ref) === 'video';
+            var ti = document.createElement(isVideo ? 'video' : 'img');
+            if (isVideo) { ti.muted = true; ti.preload = 'metadata'; }
+            S.resolveMedia(ref).then(function (u) {
+              if (u) ti.src = u + (isVideo ? '#t=0.1' : '');
+            });
+            b.appendChild(ti);
+            b.addEventListener('click', function () { show(i); });
+            thumbs.appendChild(b);
+          });
+        }
+        show(0);
+      }
+
+      var cta = $('[data-book]', el);
+      if (cta) cta.addEventListener('click', function () { book(sv); });
+      box.appendChild(el);
+    });
   }
 
   /* ============================================================
@@ -762,7 +892,7 @@ window.FHh = window.FHh || {};
         rot: ((k % 5) - 2) * 0.8,
         ang: (i * 2.399) % 6.283,
         spin: 0.22 + (k % 5) * 0.06,
-        kw: isCenter ? 0.30 : (0.15 + (k % 5) * 0.022),
+        kw: isCenter ? 0.42 : (0.22 + (k % 5) * 0.032),
         orbit: ((k % 5) - 2) * 20,                  // своё кольцо у каждого
         spinDir: (58 + (k % 4) * 16) * (i % 2 ? 1 : -1),
         x: 0, y: 0, vx: 0, vy: 0, w: 0, h: 0
@@ -773,16 +903,8 @@ window.FHh = window.FHh || {};
         if (touchLayout() || driftFocus) return;
         driftHover = t;
         d.classList.add('is-near');
-        // на десктопе снимок под курсором выходит вперёд, а соседи разбегаются
-        clearTimeout(hoverT);
-        if (Date.now() - focusClosedAt > 450) {
-          hoverT = setTimeout(function () {
-            if (driftHover === t && !driftFocus) openFocus(t);
-          }, 180);
-        }
       });
       d.addEventListener('pointerleave', function () {
-        clearTimeout(hoverT);
         if (driftHover === t) driftHover = null;
         d.classList.remove('is-near');
       });
@@ -901,7 +1023,7 @@ window.FHh = window.FHh || {};
         var ccx = center.x + center.w / 2, ccy = center.y + center.h / 2;
         dx = tx - ccx; dy = ty - ccy;
         d = Math.sqrt(dx * dx + dy * dy) || 1;
-        var ring = Math.min(W, H) * 0.33 + t.orbit;
+        var ring = Math.min(W, H) * 0.36 + t.orbit;
         t.vx += (dx / d) * (ring - d) * 2.4 * dt;
         t.vy += (dy / d) * (ring - d) * 2.4 * dt;
         t.vx += (-dy / d) * t.spinDir * dt;
@@ -933,29 +1055,34 @@ window.FHh = window.FHh || {};
     });
   }
 
-  /* ---- телефон: тап разворачивает кадр по центру экрана ----
-     Сам кадр остаётся в ленте и продолжает плыть, а поверх страницы
-     показывается его копия: внутри секции «о мастере» затемнение
-     перекрывало бы оригинал, а fixed считался бы от анимированного
-     предка и кадр уезжал вбок. */
-  function openFocus(t) {
-    closeFocus();
-    driftFocus = t;
-    t.el.classList.add('is-dim');
+  /* ============================================================
+     ПРОСМОТР КАДРА ВО ВЕСЬ ЭКРАН
+     Одинаково работает и для ленты «о мастере», и для фотографий
+     работы: снимок вписывается целиком, щипком или двойным касанием
+     приближается, в увеличенном виде таскается пальцем.
+     Слой живёт прямо в <body> — внутри секции затемнение перекрывало бы
+     сам кадр, а fixed считался бы от анимированного предка.
+     ============================================================ */
+  var viewerEl = null, viewerImg = null, viewerClose = null;
+
+  function openViewer(srcNode, onClose) {
+    closeViewer();
+    viewerClose = onClose || null;
 
     if (!driftScrim) {
       driftScrim = document.createElement('div');
       driftScrim.className = 'drift__scrim';
-      driftScrim.addEventListener('click', closeFocus);
+      driftScrim.addEventListener('click', closeViewer);
       document.body.appendChild(driftScrim);
     }
     driftScrim.classList.add('is-on');
 
-    var src = $('img,video', t.el);
-    driftZoom = document.createElement('div');
-    driftZoom.className = 'drift__zoom';
+    var isVideo = srcNode && srcNode.tagName === 'VIDEO';
+    viewerEl = document.createElement('div');
+    viewerEl.className = 'drift__zoom';
+
     var big;
-    if (src && src.tagName === 'VIDEO') {
+    if (isVideo) {
       big = document.createElement('video');
       big.muted = true; big.loop = true; big.autoplay = true;
       big.playsInline = true; big.setAttribute('playsinline', '');
@@ -964,26 +1091,133 @@ window.FHh = window.FHh || {};
       big = document.createElement('img');
       big.alt = '';
     }
-    if (src) big.src = src.currentSrc || src.src;
-    driftZoom.appendChild(big);
-    driftZoom.addEventListener('click', closeFocus);
-    if (!touchLayout()) {
-      driftZoom.addEventListener('pointerleave', function (e) {
-        if (e.pointerType !== 'touch') closeFocus();
-      });
+    if (srcNode) big.src = srcNode.currentSrc || srcNode.src;
+    viewerImg = big;
+    viewerEl.appendChild(big);
+
+    var x = document.createElement('button');
+    x.className = 'drift__zoomclose';
+    x.setAttribute('aria-label', 'Закрыть');
+    x.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    x.addEventListener('click', function (e) { e.stopPropagation(); closeViewer(); });
+    viewerEl.appendChild(x);
+
+    if (!isVideo) {
+      var hint = document.createElement('p');
+      hint.className = 'drift__zoomhint';
+      hint.textContent = touchLayout() ? 'двойное касание или щипок — приблизить'
+                                       : 'двойной клик — приблизить';
+      viewerEl.appendChild(hint);
+      wireZoom(viewerEl, big);
     }
-    document.body.appendChild(driftZoom);
+
+    viewerEl.addEventListener('click', function (e) {
+      if (e.target === viewerEl) closeViewer();
+    });
+    document.body.appendChild(viewerEl);
+    lockScroll(true);
+    driftZoom = viewerEl;
+  }
+
+  function closeViewer() {
+    if (viewerEl) {
+      if (viewerEl.parentNode) viewerEl.parentNode.removeChild(viewerEl);
+      viewerEl = null; viewerImg = null; driftZoom = null;
+      lockScroll(false);
+    }
+    if (driftScrim) driftScrim.classList.remove('is-on');
+    var cb = viewerClose; viewerClose = null;
+    if (cb) cb();
+  }
+
+  /* щипок, двойное касание и перетаскивание увеличенного кадра */
+  function wireZoom(box, img) {
+    var scale = 1, tx = 0, ty = 0;
+    var pts = {}, startDist = 0, startScale = 1, startX = 0, startY = 0, panX = 0, panY = 0;
+    var lastTap = 0;
+
+    function paint() {
+      var lim = Math.max(0, (scale - 1) * 0.5);
+      var w = box.clientWidth || 1, h = img.clientHeight || 1;
+      tx = Math.max(-w * lim, Math.min(w * lim, tx));
+      ty = Math.max(-h * lim, Math.min(h * lim, ty));
+      img.style.transform = 'translate(' + tx.toFixed(1) + 'px,' + ty.toFixed(1) + 'px) scale(' + scale.toFixed(3) + ')';
+      box.classList.toggle('is-zoomed', scale > 1.02);
+    }
+    function reset() { scale = 1; tx = 0; ty = 0; paint(); }
+
+    box.addEventListener('pointerdown', function (e) {
+      pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      var ids = Object.keys(pts);
+      if (ids.length === 2) {
+        var a = pts[ids[0]], b = pts[ids[1]];
+        startDist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        startScale = scale;
+      } else if (ids.length === 1) {
+        startX = e.clientX; startY = e.clientY; panX = tx; panY = ty;
+        var now = Date.now();
+        if (now - lastTap < 320) { scale = scale > 1.02 ? 1 : 2.4; tx = ty = 0; paint(); }
+        lastTap = now;
+      }
+      box.classList.add('is-panning');
+      try { box.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+
+    box.addEventListener('pointermove', function (e) {
+      if (!pts[e.pointerId]) return;
+      pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      var ids = Object.keys(pts);
+      if (ids.length >= 2) {
+        var a = pts[ids[0]], b = pts[ids[1]];
+        var d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        scale = Math.max(1, Math.min(4, startScale * (d / startDist)));
+        paint();
+      } else if (scale > 1.02) {
+        tx = panX + (e.clientX - startX);
+        ty = panY + (e.clientY - startY);
+        paint();
+      }
+    });
+
+    function up(e) {
+      delete pts[e.pointerId];
+      if (!Object.keys(pts).length) box.classList.remove('is-panning');
+    }
+    box.addEventListener('pointerup', up);
+    box.addEventListener('pointercancel', up);
+    box.addEventListener('dblclick', function () { scale = scale > 1.02 ? 1 : 2.4; tx = ty = 0; paint(); });
+    box.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      scale = Math.max(1, Math.min(4, scale * (e.deltaY < 0 ? 1.12 : 0.89)));
+      if (scale <= 1.02) { tx = ty = 0; }
+      paint();
+    }, { passive: false });
+
+    reset();
+  }
+
+  /* ---- лента «о мастере»: кадр разворачивается по клику ---- */
+  function openFocus(t) {
+    closeFocus();
+    driftFocus = t;
+    t.el.classList.add('is-dim');
+    openViewer($('img,video', t.el), function () {
+      if (driftFocus) {
+        driftFocus.el.classList.remove('is-dim');
+        driftFocus = null;
+        focusClosedAt = Date.now();
+      }
+    });
   }
 
   function closeFocus() {
     clearTimeout(hoverT);
+    if (viewerEl) { closeViewer(); return; }
     if (driftFocus) {
       driftFocus.el.classList.remove('is-dim');
       driftFocus = null;
       focusClosedAt = Date.now();
     }
-    if (driftZoom && driftZoom.parentNode) driftZoom.parentNode.removeChild(driftZoom);
-    driftZoom = null;
     if (driftScrim) driftScrim.classList.remove('is-on');
   }
 
@@ -1003,7 +1237,7 @@ window.FHh = window.FHh || {};
     var name = h.slice(2);
     if (name.indexOf('g/') === 0) return 'home';
     if (name === '') return 'home';
-    if (name === 'about' || name === 'contacts') return name;
+    if (name === 'about' || name === 'contacts' || name === 'services') return name;
     return 'home';
   }
   function hashGroup() {
@@ -1020,6 +1254,7 @@ window.FHh = window.FHh || {};
       window.scrollTo(0, 0);
       if (name === 'home') renderGrid(true);
       if (name === 'about') renderDrift(true);
+      if (name === 'services') renderServices();
     };
     if (silent) { apply(); return; }
     wiper.run(Math.random() * 999, 1150, apply);
@@ -1109,6 +1344,7 @@ window.FHh = window.FHh || {};
     // Escape закрывает по одному слою: сначала карточка, потом группа
     window.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
+      if (viewerEl) { closeViewer(); return; }
       if (driftFocus) { closeFocus(); return; }
       if ($('#product').classList.contains('is-open')) { closeProduct(); return; }
       if (currentGroup) closeGroup();
@@ -1158,12 +1394,14 @@ window.FHh = window.FHh || {};
       renderFilters();
       renderGrid(false);
       renderDrift();
+      renderServices();
       var panel = $('.gpanel');
       if (panel && currentGroup) fillGroupGrid(panel, currentGroup);
       if (hero) hero.redraw();
     },
     openGroup: openGroup,
     closeGroup: closeGroup,
+    renderServices: renderServices,
     openProduct: openProduct,
     lockScroll: lockScroll,
     cardHTML: cardHTML,

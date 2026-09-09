@@ -134,6 +134,12 @@ window.FHh = window.FHh || {};
       preloaderMs: 2200,
       lineart: 1,             // фоновый лайнарт головы как декор
 
+      /* раздел «услуги» */
+      servicesLead:
+        '<p>Здесь всё, что я могу предложить как мастер: не только вещи из витрины, ' +
+        'но и то, что делается вместе с вами — аренда, тренировки, турниры и уже ' +
+        'проведённые мероприятия.</p>',
+
       /* «о мастере» */
       aboutPhotos: MASTER_PHOTOS.slice(),
       aboutDrift: 1,
@@ -145,6 +151,56 @@ window.FHh = window.FHh || {};
     },
 
     palettes: [],   // пользовательские палитры (встроенные лежат в BUILTIN_PALETTES)
+
+    /* Услуги — не товар: у них есть слоты, даты и своё описание.
+       status: open — запись открыта, order — по договорённости,
+       closed — сейчас не проводится. Слоты можно скрыть целиком. */
+    services: [
+      {
+        id: 's1', title: 'Аренда хоббихорсов', kind: 'аренда',
+        price: 700, priceNote: 'за голову в сутки', status: 'open',
+        desc: '<p>Даю хорсов напрокат на съёмки, фестивали, дни рождения и пробные ' +
+              'тренировки — чтобы попробовать до того, как заказывать своего.</p>' +
+              '<p>В комплекте голова, палка и оголовье. Залог возвращается при возврате ' +
+              'в целости, мелкие потёртости — не страшно.</p>',
+        specs: [['Минимальный срок', '1 сутки'], ['Залог', '3 000 ₽'],
+                ['Где забрать', 'самовывоз или курьер по городу']],
+        images: [], slots: [], showSlots: 0
+      },
+      {
+        id: 's2', title: 'Тренировка по hobbyhorsing', kind: 'занятие',
+        price: 1500, priceNote: 'за занятие, группа до 6 человек', status: 'open',
+        desc: '<p>Разбираем посадку, работу руки, прыжковую технику и связки для ' +
+              'выездковых схем. Хорса можно взять мой — он входит в занятие.</p>' +
+              '<p>Первое занятие пробное: приходите посмотреть, подходит ли вам это вообще.</p>',
+        specs: [['Длительность', '1 час 20 минут'], ['Возраст', 'от 8 лет'],
+                ['Что взять', 'спортивную обувь и воду']],
+        images: [],
+        slots: [
+          { when: 'суббота, 11:00', note: 'начинающие', left: 3 },
+          { when: 'суббота, 13:00', note: 'продолжающие', left: 1 },
+          { when: 'среда, 18:30', note: 'свободная тренировка', left: 5 }
+        ],
+        showSlots: 1
+      },
+      {
+        id: 's3', title: 'Соревнования и судейство', kind: 'мероприятие',
+        price: null, priceNote: 'стоимость зависит от формата', status: 'order',
+        desc: '<p>Собираю турнир под ключ: маршруты, схемы, стартовые протоколы, ' +
+              'судейство и награды. Могу приехать судьёй на ваш старт.</p>',
+        specs: [['Форматы', 'конкур, выездка, троеборье'],
+                ['Участников', 'от 10 до 60'], ['Срок подготовки', 'от 3 недель']],
+        images: [], slots: [], showSlots: 0
+      },
+      {
+        id: 's4', title: 'Портфолио: турнир «Осенний лист»', kind: 'портфолио',
+        price: null, priceNote: '', status: 'closed',
+        desc: '<p>Двухдневный старт на 40 участников: конкур и выездка, собственные ' +
+              'маршруты, наградная стенка и фотозона из папоротников.</p>',
+        specs: [['Когда', 'октябрь 2025'], ['Участников', '40'], ['Роль', 'организатор и судья']],
+        images: [], slots: [], showSlots: 0
+      }
+    ],
 
     /* «ссылка на медиа -> путь файла в репозитории»: чтобы при следующей
        публикации не заливать уже выложенные фотографии заново */
@@ -284,6 +340,7 @@ window.FHh = window.FHh || {};
     if (!Array.isArray(site.categories)) site.categories = clone(DEFAULTS.categories);
     if (!Array.isArray(site.groups) || !site.groups.length) site.groups = clone(DEFAULTS.groups);
     if (!Array.isArray(site.palettes)) site.palettes = [];
+    if (!Array.isArray(site.services)) site.services = clone(DEFAULTS.services);
     if (!site.mediaPub || typeof site.mediaPub !== 'object') site.mediaPub = {};
     if (!Array.isArray(site.settings.aboutPhotos)) site.settings.aboutPhotos = MASTER_PHOTOS.slice();
     return site;
@@ -488,6 +545,7 @@ window.FHh = window.FHh || {};
     var refs = [];
     function want(r) { if (isBlobRef(r) && refs.indexOf(r) < 0) refs.push(r); }
     (state.items || []).forEach(function (it) { (it.images || []).forEach(want); });
+    (state.services || []).forEach(function (sv) { (sv.images || []).forEach(want); });
     ((state.settings || {}).aboutPhotos || []).forEach(want);
     want((state.settings || {}).fontCustom);
     return refs;
@@ -714,6 +772,9 @@ window.FHh = window.FHh || {};
     (pub.items || []).forEach(function (it) {
       it.images = (it.images || []).map(function (r) { return map[r] || r; });
     });
+    (pub.services || []).forEach(function (sv) {
+      sv.images = (sv.images || []).map(function (r) { return map[r] || r; });
+    });
     pub.settings.aboutPhotos = (pub.settings.aboutPhotos || []).map(function (r) { return map[r] || r; });
     var now = new Date().toISOString();
     pub.savedAt = now;
@@ -883,6 +944,10 @@ window.FHh = window.FHh || {};
     },
     statusLabel: function (s) {
       return s === 'sold' ? 'продано' : s === 'order' ? 'под заказ' : 'в наличии';
+    },
+    serviceLabel: function (s) {
+      return s === 'closed' ? 'сейчас не провожу'
+           : s === 'order' ? 'по договорённости' : 'запись открыта';
     },
     money: function (n) {
       if (n === null || n === undefined || n === '') return '—';
