@@ -1,7 +1,7 @@
 {
   "v": 2,
-  "exported": "2026-09-09T09:01:00.117Z",
-  "publishedAt": "2026-09-09T09:01:00.117Z",
+  "exported": "2026-09-09T09:20:53.529Z",
+  "publishedAt": "2026-09-09T09:20:53.529Z",
   "site": {
     "settings": {
       "siteTitle": "FHh",
@@ -134,27 +134,54 @@
       },
       {
         "id": "i3",
-        "title": "Витраж «Заросли»",
-        "cat": "glass",
-        "price": 21000,
+        "title": "Портфолио «Гиппогрифф стандарт»",
+        "cat": "hh",
+        "price": 25000,
         "old": null,
         "status": "order",
-        "desc": "<p>Панно 30×40 см в технике Тиффани. Опаловое и катедральное стекло, патинированная пайка. Подвес в комплекте.</p>",
+        "desc": "<p>Гиппогриффы по выкройке стандарт отличаются достойно крупным размером, сравнимым с листом А3 и очень изящной анатомией.\n\nТехнология изготовления сохраняет легкий вес, позволяющий легко прыгать с таким гиппогрифом, мягкий материал защищает от травм и не ломается. </p>",
         "specs": [
           [
             "Размер",
-            "30 × 40 см"
+            "Стандарт, 35х45см"
           ],
           [
-            "Техника",
-            "Тиффани"
+            "Глаза",
+            "Стекло, ручная роспись, эффект слежения"
           ],
           [
-            "Срок",
+            "Срок изготовления",
             "3–4 недели"
+          ],
+          [
+            "Палочка",
+            "Буковая, съёмная — на винтовом креплении"
+          ],
+          [
+            "Уши",
+            "На гибком каркасе, меняют положение под настроение"
           ]
         ],
-        "images": []
+        "images": [
+          "assets/media/xmttvonzo81mk0.png",
+          "assets/media/xmttvomvihu4rq.png",
+          "assets/media/xmttvon5fm6z6f.png",
+          "assets/media/xmttvoq0udv5r4.png",
+          "assets/media/xmttvopkhj8i94.png",
+          "assets/media/xmttvokabogikg.png",
+          "assets/media/xmttvom6bbybfh.png",
+          "assets/media/xmttvonmcmflrh.png",
+          "assets/media/xmttvop2xn2gq0.png",
+          "assets/media/xmttvojp0c4cqk.png",
+          "assets/media/xmttvojppn82xz.png",
+          "assets/media/xmttvokm0dtg37.png",
+          "assets/media/xmttvoo8lscdvw.png",
+          "assets/media/xmttvokz8kc4to.png",
+          "assets/media/xmttvoojlv7hd6.png",
+          "assets/media/xmttvok0ojwmpr.png",
+          "assets/media/xmttvoli0m2ykj.png",
+          "assets/media/xmttvomkmxemoi.png"
+        ]
       },
       {
         "id": "i4",
@@ -286,7 +313,7 @@
         "images": []
       }
     ],
-    "savedAt": "2026-09-09T09:01:00.117Z",
+    "savedAt": "2026-09-09T09:20:53.529Z",
     "groups": [
       {
         "id": "hobbyhorsing",
