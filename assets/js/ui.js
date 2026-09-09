@@ -833,10 +833,11 @@ window.FHh = window.FHh || {};
   var hoverT = 0;
   var focusClosedAt = 0;
 
-  var REP_R = 260;    // радиус «испуга», px
-  var REP_F = 2600;   // сила отталкивания
-  var WANDER = 44;    // насколько сильно кадр сам меняет курс
-  var VMAX = 460;
+  var REP_R = 250;    // радиус «испуга», px
+  var REP_F = 2000;   // сила отталкивания
+  var SEP = 2100;     // насколько кадры расталкивают друг друга
+  var WANDER = 40;    // насколько сильно кадр сам меняет курс
+  var VMAX = 520;
 
   function driftActive() {
     var v = $('.view[data-view="about"]');
@@ -901,7 +902,7 @@ window.FHh = window.FHh || {};
         ang: (i * 2.399) % 6.283,
         spin: 0.22 + (k % 5) * 0.06,
         kw: isCenter ? 0.42 : (0.22 + (k % 5) * 0.032),
-        orbit: ((k % 5) - 2) * 20,                  // своё кольцо у каждого
+        orbit: ((k % 5) - 2) * 30,                  // своё кольцо у каждого
         spinDir: (58 + (k % 4) * 16) * (i % 2 ? 1 : -1),
         x: 0, y: 0, vx: 0, vy: 0, w: 0, h: 0
       };
@@ -916,8 +917,51 @@ window.FHh = window.FHh || {};
         if (driftHover === t) driftHover = null;
         d.classList.remove('is-near');
       });
-      d.addEventListener('click', function () {
-        if (driftFocus === t) closeFocus(); else openFocus(t);
+      /* Перетаскивание: застрявший под соседом кадр можно вытащить.
+         Куда положили — там и останется до перезагрузки или ухода в
+         другой раздел. Мышь тянет сразу, палец — после удержания,
+         иначе жест отобрал бы у страницы прокрутку. */
+      var dragging = false, moved = false, holdT = 0, armed = false;
+      var gx = 0, gy = 0, ox = 0, oy = 0;
+
+      d.addEventListener('pointerdown', function (e) {
+        if (driftFocus || e.button) return;
+        gx = e.clientX; gy = e.clientY; ox = t.x; oy = t.y;
+        moved = false; dragging = false;
+        armed = e.pointerType !== 'touch';
+        if (!armed) {
+          clearTimeout(holdT);
+          holdT = setTimeout(function () { armed = true; }, 240);
+        }
+        try { d.setPointerCapture(e.pointerId); } catch (err) {}
+      });
+
+      d.addEventListener('pointermove', function (e) {
+        if (!armed) return;
+        var dx = e.clientX - gx, dy = e.clientY - gy;
+        if (!dragging && Math.hypot(dx, dy) < 6) return;
+        dragging = true; moved = true;
+        t.pinned = true;
+        t.vx = t.vy = 0;
+        t.x = ox + dx; t.y = oy + dy;
+        clampTile(t, driftBox.clientWidth, driftBox.clientHeight);
+        place(t);
+        d.classList.add('is-held');
+        e.preventDefault();
+      });
+
+      function drop(e) {
+        clearTimeout(holdT);
+        armed = false;
+        d.classList.remove('is-held');
+        if (dragging) { dragging = false; return; }
+        // просто нажатие — открываем кадр
+        if (!moved) { if (driftFocus === t) closeFocus(); else openFocus(t); }
+      }
+      d.addEventListener('pointerup', drop);
+      d.addEventListener('pointercancel', function () {
+        clearTimeout(holdT); armed = false; dragging = false;
+        d.classList.remove('is-held');
       });
     });
 
@@ -954,7 +998,7 @@ window.FHh = window.FHh || {};
         t.vx = t.vy = 0;
       } else if (t.placed !== true) {
         var a = (oi / n) * Math.PI * 2 + 0.6;
-        var rx = W * 0.34, ry = H * 0.34;
+        var rx = W * 0.36, ry = H * 0.33;
         t.x = cx + Math.cos(a) * rx - t.w / 2 + ((t.i % 3) - 1) * 12;
         t.y = cy + Math.sin(a) * ry - t.h / 2 + ((t.i % 4) - 1.5) * 12;
         t.vx = Math.cos(a + 1.6) * 22;
@@ -999,12 +1043,34 @@ window.FHh = window.FHh || {};
     var from = driftFocus || driftHover;
     if (from) { srcX = from.x + from.w / 2; srcY = from.y + from.h / 2; }
 
-    var damp = Math.exp(-1.7 * dt);
+    var damp = Math.exp(-1.35 * dt);
+
+    // расталкивание соседей: без него кадры сбивались в кучу и
+    // перекрывали друг друга даже на широком экране
+    var n = driftTiles.length, i, j, a, b, ddx, ddy, dd, need, sf;
+    for (i = 0; i < n; i++) {
+      a = driftTiles[i];
+      for (j = i + 1; j < n; j++) {
+        b = driftTiles[j];
+        var aFix = a.center || a.pinned || a === driftFocus;
+        var bFix = b.center || b.pinned || b === driftFocus;
+        if (aFix && bFix) continue;
+        ddx = (b.x + b.w / 2) - (a.x + a.w / 2);
+        ddy = (b.y + b.h / 2) - (a.y + a.h / 2);
+        dd = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+        need = (Math.min(a.w, a.h) + Math.min(b.w, b.h)) * 0.62;
+        if (dd >= need) continue;
+        sf = (1 - dd / need) * SEP * dt;
+        if (!aFix) { a.vx -= (ddx / dd) * sf; a.vy -= (ddy / dd) * sf; }
+        if (!bFix) { b.vx += (ddx / dd) * sf; b.vy += (ddy / dd) * sf; }
+      }
+    }
 
     driftTiles.forEach(function (t) {
       if (t.center) { t.x = W / 2 - t.w / 2; t.y = H / 2 - t.h / 2; place(t); return; }
       if (t === driftFocus) return;                     // раскрытый кадр стоит
-      if (t === driftHover) { t.vx *= 0.82; t.vy *= 0.82; place(t); return; }
+      if (t.pinned) { clampTile(t, W, H); place(t); return; }   // положили руками
+      if (t === driftHover) { t.vx *= 0.88; t.vy *= 0.88; place(t); return; }
 
       // собственный курс, медленно поворачивающийся
       t.ang += t.spin * dt;
@@ -1031,9 +1097,15 @@ window.FHh = window.FHh || {};
         var ccx = center.x + center.w / 2, ccy = center.y + center.h / 2;
         dx = tx - ccx; dy = ty - ccy;
         d = Math.sqrt(dx * dx + dy * dy) || 1;
-        var ring = Math.min(W, H) * 0.36 + t.orbit;
-        t.vx += (dx / d) * (ring - d) * 2.4 * dt;
-        t.vy += (dy / d) * (ring - d) * 2.4 * dt;
+        // орбита эллиптическая: по ширине места больше, чем по высоте,
+        // и круглое кольцо било кадры о верхний и нижний борта
+        var rx = W * 0.34 + t.orbit, ry = H * 0.30 + t.orbit * 0.7;
+        var u = Math.sqrt((dx / rx) * (dx / rx) + (dy / ry) * (dy / ry)) || 0.001;
+        // чем дальше кадр от кольца, тем сильнее его тянет обратно:
+        // после «испуга» он возвращается в темпе, а не ползёт
+        var pull = (1 - u) * (u > 1 ? 620 : 340);
+        t.vx += (dx / d) * pull * dt;
+        t.vy += (dy / d) * pull * dt;
         t.vx += (-dy / d) * t.spinDir * dt;
         t.vy += (dx / d) * t.spinDir * dt;
 

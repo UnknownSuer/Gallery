@@ -374,8 +374,8 @@ body[data-phase="live"] .hero__foot{opacity:1}
   transform:translateY(8px);transition:transform .5s var(--ease)}
 .card:hover .card__over b{transform:none}
 .card__badge{position:absolute;top:0;left:0;z-index:3;
-  font-family:var(--f-mono);font-weight:500;letter-spacing:var(--mono-track);
-  font-size:calc(10px * var(--fs));padding:6px 11px;
+  font-family:var(--f-mono);font-weight:600;letter-spacing:var(--mono-track);
+  font-size:calc(13px * var(--fs));padding:9px 17px;
   background:var(--ink);color:var(--paper)}
 .card__badge--order{background:var(--badge)}
 .card__badge--ok{background:var(--ok);color:var(--paper);
@@ -411,8 +411,8 @@ body[data-phase="live"] .hero__foot{opacity:1}
 .view--text .head{padding-top:clamp(110px,16vw,200px)}
 /* на «о мастере» шапку раздела поджимаем: иначе лента фотографий
    начинается ниже сгиба и её приходится доскролливать */
-.view[data-view="about"] .head{padding-top:clamp(104px,12vw,150px);
-  padding-bottom:clamp(14px,2vw,24px)}
+.view[data-view="about"] .head{padding-top:clamp(92px,10vw,124px);
+  padding-bottom:clamp(12px,1.6vw,20px)}
 .view--text>.prose,.view--text>.cta{margin-left:var(--gut);margin-right:var(--gut)}
 .prose{max-width:62ch;color:var(--ink-soft);font-size:calc(15.5px * var(--fs))}
 .prose p{margin:0 0 1.15em}
@@ -477,11 +477,11 @@ body[data-phase="live"] .hero__foot{opacity:1}
 }
 
 /* ---- «о мастере»: текст слева, дрейфующие фотографии справа ---- */
-.about{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);
-  gap:clamp(24px,4vw,64px);align-items:start;padding:0 var(--gut)}
+.about{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.38fr);
+  gap:clamp(24px,4vw,52px);align-items:start;padding:0 var(--gut)}
 .about__col{position:relative;z-index:1}
 /* лента может плавать и слева от текста — переключается в панели */
-.about.is-left{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+.about.is-left{grid-template-columns:minmax(0,1.38fr) minmax(0,.82fr)}
 .about.is-left .about__col{order:2}
 .about.is-left .drift{order:1}
 
@@ -489,7 +489,8 @@ body[data-phase="live"] .hero__foot{opacity:1}
    кадра своя скорость, борта отбивают, центральный кадр обходят, а от
    того, на который навели курсор, остальные разбегаются. */
 .drift{position:relative;width:100%;min-width:0;
-  height:min(64vh,560px);height:min(64svh,560px);min-height:320px}
+  height:min(72vh,660px);height:min(72svh,660px);min-height:320px;
+  touch-action:manipulation}
 .drift__ph{position:absolute;left:0;top:0;width:120px;
   overflow:hidden;background:var(--paper-2);cursor:pointer;
   box-shadow:0 10px 32px -18px color-mix(in srgb,var(--ink) 60%,transparent);
@@ -500,6 +501,9 @@ body[data-phase="live"] .hero__foot{opacity:1}
   box-shadow:0 22px 60px -24px color-mix(in srgb,var(--ink) 68%,transparent)}
 .drift__ph.is-near{z-index:5;
   box-shadow:0 26px 56px -22px color-mix(in srgb,var(--ink) 72%,transparent)}
+/* кадр в руке: приподнимаем, чтобы было видно, что он слушается */
+.drift__ph.is-held{z-index:7;cursor:grabbing;
+  box-shadow:0 30px 64px -20px color-mix(in srgb,var(--ink) 78%,transparent)}
 
 /* телефон: тап разворачивает кадр по центру экрана, остальные плывут дальше */
 .drift__scrim{position:fixed;inset:0;z-index:70;
@@ -955,7 +959,7 @@ body.is-gsheet{overflow:hidden}
   body[data-cards="grid"] .card__name{font-size:calc(13px * var(--fs));line-height:1.2}
   body[data-cards="grid"] .card__cat{font-size:calc(9.5px * var(--fs));margin-top:3px}
   body[data-cards="grid"] .card__price{font-size:calc(11.5px * var(--fs))}
-  body[data-cards="grid"] .card__badge{font-size:calc(9px * var(--fs));padding:4px 8px}
+  body[data-cards="grid"] .card__badge{font-size:calc(11px * var(--fs));padding:6px 11px}
   body[data-cards="grid"] .st{font-size:calc(8.5px * var(--fs));padding:3px 6px}
   body[data-cards="grid"] .card__play{width:24px;height:24px;right:7px;bottom:7px}
   .hero{min-height:92svh}
