@@ -584,6 +584,66 @@ window.FHh = window.FHh || {};
   }
 
   /* ---------------- карточка работы ---------------- */
+  /* ------------------------------------------------------------
+     Кадры внутри карточки работы: миниатюры, листание вбок и высота
+     рамки по пропорциям снимка. Состояние держим здесь, а не внутри
+     openProduct: до него дотягиваются и жест, и клавиши.
+     ------------------------------------------------------------ */
+  var sheetNodes = [], sheetAt = 0, sheetSwiped = false;
+
+  /* Высота рамки на телефоне считается из этой доли: кадр тогда
+     ложится от края до края, не уменьшаясь и не оставляя полей. */
+  function applyRatio() {
+    var n = sheetNodes[sheetAt];
+    if (!n) return;
+    var w = n.naturalWidth || n.videoWidth || 0;
+    var h = n.naturalHeight || n.videoHeight || 0;
+    if (w && h) $('#prodImgWrap').style.setProperty('--sheet-ar', w + ' / ' + h);
+  }
+
+  function show(i) {
+    if (!sheetNodes.length) return;
+    var n = sheetNodes.length;
+    sheetAt = ((i % n) + n) % n;
+    sheetNodes.forEach(function (x, k) {
+      x.classList.toggle('is-on', k === sheetAt);
+      if (k !== sheetAt && x.pause) x.pause();
+    });
+    var tb = $$('#prodThumbs button');
+    tb.forEach(function (x, k) { x.classList.toggle('is-on', k === sheetAt); });
+    if (tb[sheetAt] && tb[sheetAt].scrollIntoView) {
+      tb[sheetAt].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+    applyRatio();
+  }
+
+  /* Жест вбок переключает кадр. Вертикаль отдаём странице, иначе
+     карточку нельзя было бы прокрутить пальцем по самому снимку;
+     после протяжки гасим клик, чтобы не открылся полный просмотр. */
+  function wireSwipe(box) {
+    if (box.dataset.swipe) return;
+    box.dataset.swipe = '1';
+    var x0 = 0, y0 = 0, live = false;
+
+    box.addEventListener('pointerdown', function (e) {
+      if (e.button) return;
+      // метку протяжки снимаем здесь, а не в клике: если браузер
+      // после жеста клик не пришлёт, она бы съела следующее касание
+      sheetSwiped = false;
+      x0 = e.clientX; y0 = e.clientY; live = true;
+    });
+    box.addEventListener('pointerup', function (e) {
+      if (!live) return;
+      live = false;
+      if (sheetNodes.length < 2) return;
+      var dx = e.clientX - x0, dy = e.clientY - y0;
+      if (Math.abs(dx) < 42 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+      sheetSwiped = true;
+      show(sheetAt + (dx < 0 ? 1 : -1));
+    });
+    box.addEventListener('pointercancel', function () { live = false; });
+  }
+
   function openProduct(id) {
     var it = S.state.items.filter(function (x) { return x.id === id; })[0];
     if (!it) return;
@@ -612,6 +672,8 @@ window.FHh = window.FHh || {};
     var refs = (it.images && it.images.length) ? it.images : [null];
     var wrap = $('#prodImgWrap'); wrap.innerHTML = '';
     var thumbs = $('#prodThumbs'); thumbs.innerHTML = '';
+    sheetNodes = []; sheetAt = 0;
+    wrap.style.removeProperty('--sheet-ar');
 
     refs.forEach(function (ref, i) {
       var isVideo = ref && S.mediaKind(ref) === 'video';
@@ -639,9 +701,17 @@ window.FHh = window.FHh || {};
           set(B.placeholder(it.id + it.title, 1200, 1500));
         }
       }
+      // клик по кадру — тот же полноэкранный просмотр, что и в «о мастере»
       node.addEventListener('click', function () {
+        if (sheetSwiped) return;                      // это была протяжка
         if (node.classList.contains('is-on')) openViewer(node);
       });
+      // как только известен настоящий размер — подгоняем высоту рамки
+      node.addEventListener(isVideo ? 'loadedmetadata' : 'load', function () {
+        if (sheetNodes[sheetAt] === node) applyRatio();
+      });
+      if (!isVideo && node.complete && node.naturalWidth) applyRatio();
+      sheetNodes.push(node);
       wrap.appendChild(node);
 
       if (refs.length > 1) {
@@ -652,16 +722,13 @@ window.FHh = window.FHh || {};
         b.appendChild(ti);
         if (ref) S.resolveMedia(ref).then(function (u) { ti.src = u + (isVideo ? '#t=0.1' : ''); });
         else ti.src = node.src;
-        b.addEventListener('click', function () {
-          $$('img,video', wrap).forEach(function (x, k) {
-            x.classList.toggle('is-on', k === i);
-            if (k !== i && x.pause) x.pause();
-          });
-          $$('button', thumbs).forEach(function (x, k) { x.classList.toggle('is-on', k === i); });
-        });
+        b.addEventListener('click', function () { show(i); });
         thumbs.appendChild(b);
       }
     });
+
+    applyRatio();
+    wireSwipe(wrap);
 
     var bodyEl = $('.sheet__body');
     bodyEl.classList.remove('sheet__stagger');
@@ -1400,6 +1467,12 @@ window.FHh = window.FHh || {};
 
     // Escape закрывает по одному слою: сначала карточка, потом группа
     window.addEventListener('keydown', function (e) {
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') &&
+          !viewerEl && sheetNodes.length > 1 &&
+          $('#product').classList.contains('is-open')) {
+        show(sheetAt + (e.key === 'ArrowRight' ? 1 : -1));
+        return;
+      }
       if (e.key !== 'Escape') return;
       if (viewerEl) { closeViewer(); return; }
       if (driftFocus) { closeFocus(); return; }

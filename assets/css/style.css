@@ -655,8 +655,10 @@ body.is-gsheet{overflow:hidden}
 .sheet__close span:last-child{transform:rotate(-45deg)}
 .sheet__close:hover{background:var(--ink);border-color:var(--ink);transform:rotate(90deg)}
 .sheet__close:hover span{background:var(--paper)}
-.sheet__media{position:relative;background:var(--paper-2);display:flex;flex-direction:column;min-height:0}
-.sheet__imgs{flex:1;position:relative;overflow:hidden;min-height:0}
+.sheet__media{position:relative;background:var(--paper-2);display:flex;flex-direction:column;
+  min-height:0;min-width:0}
+.sheet__imgs{flex:1;position:relative;overflow:hidden;min-height:0;
+  touch-action:pan-y;-webkit-user-select:none;user-select:none}
 /* кадр вписывается целиком: раньше cover срезал у высоких снимков
    половину, а у вырезанных вдобавок менялся object-fit — и при
    переключении миниатюр главный кадр «прыгал» в размере */
@@ -667,17 +669,34 @@ body.is-gsheet{overflow:hidden}
 .sheet__imgs video{background:var(--ink)}
 .sheet__imgs img.is-cutout{padding:6%;
   background-size:cover;background-position:center;background-repeat:no-repeat}
-.sheet__thumbs{display:flex;gap:1px;background:var(--line);flex:none}
+/* Полоса миниатюр повторяет сетку витрины: равные ячейки встык,
+   разделённые волосяной линией. Неактивные кадры раньше гасились
+   прозрачностью — сквозь них просвечивала бумага, и лента казалась
+   дырявой; теперь поверх ложится вуаль, а сам кадр закрывает ячейку
+   целиком. Больше восьми кадров — полоса прокручивается вбок,
+   иначе миниатюры выродились бы в щепки. */
+.sheet__thumbs{display:grid;grid-auto-flow:column;
+  grid-auto-columns:minmax(44px,1fr);gap:1px;background:var(--line);flex:none;
+  min-width:0;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+.sheet__thumbs::-webkit-scrollbar{display:none}
 .sheet__thumbs:empty{display:none}
-.sheet__thumbs button{position:relative;flex:1;aspect-ratio:1;overflow:hidden;opacity:.45;max-height:88px;
+/* width:100% обязателен: без него ячейка считает ширину из пропорции и
+   упирается в потолок высоты — при двух кадрах полоса не дотягивалась
+   до края и справа оставалась пустая бумага */
+.sheet__thumbs button{position:relative;width:100%;aspect-ratio:1;overflow:hidden;
+  min-width:0;max-height:88px;background:var(--paper-2)}
+.sheet__thumbs button::after{content:"";position:absolute;inset:0;z-index:1;
+  background:color-mix(in srgb,var(--paper) 55%,transparent);
   transition:opacity .35s}
-.sheet__thumbs button img,.sheet__thumbs button video{width:100%;height:100%;object-fit:cover;display:block}
-.sheet__thumbs button.is-video::after{content:"";position:absolute;left:50%;top:50%;
-  transform:translate(-50%,-50%);
+.sheet__thumbs button.is-on::after,.sheet__thumbs button:hover::after{opacity:0}
+.sheet__thumbs button img,.sheet__thumbs button video{position:absolute;inset:0;
+  width:100%;height:100%;object-fit:cover;display:block}
+.sheet__thumbs button.is-video::before{content:"";position:absolute;left:50%;top:50%;
+  z-index:2;transform:translate(-50%,-50%);
   border-left:9px solid var(--paper);border-top:6px solid transparent;
   border-bottom:6px solid transparent;
   filter:drop-shadow(0 0 3px color-mix(in srgb,var(--ink) 80%,transparent))}
-.sheet__thumbs button.is-on,.sheet__thumbs button:hover{opacity:1}
+
 .sheet__body{padding:clamp(24px,3.4vw,58px);overflow-y:auto;display:flex;flex-direction:column;
   overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   padding-bottom:max(clamp(24px,3.4vw,58px),env(safe-area-inset-bottom))}
@@ -901,10 +920,14 @@ body.is-gsheet{overflow:hidden}
   .preview{position:static;max-width:340px}
 }
 @media (max-width:1024px){
+  /* Кадр занимает всю ширину экрана, а высоту берёт от собственных
+     пропорций (--sheet-ar ставит ui.js по загруженному снимку) — так
+     по бокам не остаётся пустых полей. Очень высокие кадры упираются
+     в потолок, чтобы под ними осталось место названию и цене. */
   .sheet__panel{width:min(720px,100vw);grid-template-columns:1fr;
-    /* проценты от самой панели: на iOS 100vh выше видимой области,
-       и низ карточки вместе с кнопкой уезжал под панель браузера */
-    grid-template-rows:minmax(0,42%) minmax(0,1fr)}
+    grid-template-rows:auto minmax(0,1fr)}
+  .sheet__imgs{flex:none;aspect-ratio:var(--sheet-ar,4 / 5);
+    max-height:66vh;max-height:66svh}
   .about{grid-template-columns:minmax(0,1fr);gap:clamp(28px,5vw,48px)}
   .drift{min-height:0;height:min(66vh,520px);height:min(66svh,520px)}
   .hero__lineart{width:min(58vw,460px);height:min(60vh,520px);right:-10%}
@@ -975,7 +998,6 @@ body.is-gsheet{overflow:hidden}
   .filters::-webkit-scrollbar{display:none}
   .filters button{flex:none}
   .head{padding-bottom:16px}
-  .sheet__panel{grid-template-rows:minmax(0,38%) minmax(0,1fr)}
   .sheet__body{padding:22px 18px 32px}
   .sheet__price{font-size:calc(19px * var(--fs))}
   .foot{gap:10px}
