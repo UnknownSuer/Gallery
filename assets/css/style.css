@@ -683,11 +683,15 @@ body.is-gsheet{overflow:hidden}
   touch-action:pan-y;-webkit-user-select:none;user-select:none}
 /* кадр вписывается целиком: раньше cover срезал у высоких снимков
    половину, а у вырезанных вдобавок менялся object-fit — и при
-   переключении миниатюр главный кадр «прыгал» в размере */
+   переключении миниатюр главный кадр «прыгал» в размере.
+   pointer-events обязателен: кадры лежат стопкой друг на друге, и
+   прозрачный (opacity:0) снимок всё равно ловит клики — последний в
+   разметке перехватывал их у видимого, и просмотр не открывался */
 .sheet__imgs img,.sheet__imgs video{position:absolute;inset:0;width:100%;height:100%;
   object-fit:contain;background:var(--paper-2);cursor:zoom-in;
+  pointer-events:none;-webkit-user-drag:none;
   opacity:0;transform:scale(1.04);transition:opacity .6s var(--ease),transform 1s var(--ease)}
-.sheet__imgs img.is-on,.sheet__imgs video.is-on{opacity:1;transform:none}
+.sheet__imgs img.is-on,.sheet__imgs video.is-on{opacity:1;transform:none;pointer-events:auto}
 .sheet__imgs video{background:var(--ink)}
 .sheet__imgs img.is-cutout{padding:6%;
   background-size:cover;background-position:center;background-repeat:no-repeat}
